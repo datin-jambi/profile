@@ -1,0 +1,4 @@
+<?php
+echo "Oops!";
+exit;
+?>
