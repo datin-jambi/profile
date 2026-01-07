@@ -1,0 +1,87 @@
+@charset "utf-8";
+/* CSS Document */
+
+body {
+	font-family:Tahoma, Geneva, sans-serif;
+	font-size:60px;
+	background-color:#eee;
+	margin:0;
+	padding:0;
+}
+
+h1, h2, h3 {
+	margin:0;
+	padding:0;
+	width: 800px;
+}
+
+#containerArsip {
+	width:1300px;
+	padding:20px;
+	background-color:#fff;
+	box-shadow:0px 0px 3px #000;
+	margin-top: 20px;
+	margin-right: auto;
+	margin-bottom: 20px;
+	margin-left: auto;
+}
+
+#header {
+	text-align:center;
+}
+
+#menu {
+	text-align:center;
+	border-top:1px solid #CCC;
+	border-bottom:1px solid #CCC;
+	margin-top: 15px;
+	margin-right: 0px;
+	margin-bottom: 15px;
+	margin-left: 0px;
+}
+
+	#menu a {
+		display:inline-block;
+		padding:5px 10px;
+		text-decoration:none;
+		color:#000;
+		font-weight:bold;
+	}
+	
+		#menu a:hover {
+			background-color:#CCC;
+		}
+		
+		#menu a.active {
+			background-color:#CCC;
+		}
+
+.table, th, td {
+	border-collapse:collapse;
+	border:1px solid #ccc;
+}
+
+	.table th {
+		background-color:#CCC;
+	}
+	
+.error {
+	border:1px solid #FF8080;
+	background-color:#FFCECE;
+	padding:2px;
+	margin:5px 0px;
+	text-align:center;
+}
+
+.ok {
+	border:1px solid #80FF80;
+	background-color:#CFC;
+	padding:3px;
+	margin:5px 0px;
+	text-align:center;
+}
+
+.footer {
+	background-color: red;
+	
+}
