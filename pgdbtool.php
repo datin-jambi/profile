@@ -31,8 +31,8 @@ class pgDBTool
 		$this->host     = "103.190.214.224";
 		// $this->dbname   = "pgsamsatoldb";
 		$this->dbname   = "pgsamsatdb24";
-		$this->user     = "samsat";
-		$this->password = "samsat";
+		$this->user     = "viewer";
+		$this->password = "~?onR56f3r1&";
 
 		// not connected
 		$this->dbconn    = false;

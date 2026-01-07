@@ -1653,110 +1653,109 @@ function strip_mrk($s){
         <script src="assets/js/jquery.min.js"></script>
         <script src="bootstrap/js/bootstrap.min.js"></script>
         <script>
-                function set_kd_merek_kb(v){
-                    document.getElementById("kd_merek_kb").value = v;
-                    document.getElementById("kd_dipilih").innerHTML = "Kode Merek: " + v;
-                }
+            function set_kd_merek_kb(v){
+                document.getElementById("kd_merek_kb").value = v;
+                document.getElementById("kd_dipilih").innerHTML = "Kode Merek: " + v;
+            }
 
-                $(document).ready(function () {
-		        $('#det_swd').hide();
-                        $('#show_det_swd').click(function(){
-                            $('#det_swd').slideToggle('slow');
-                            if($(this).text() == 'TUTUP RINCIAN SWDKLLJ')
-                            {
-                                $(this).text('LIHAT RINCIAN SWDKLLJ');
-                            }
-                            else
-                            {
-                                $(this).text('TUTUP RINCIAN SWDKLLJ');
-                            }
-                        });
-
-                        $('#det_pkb').hide();
-                        $('#show_det_pkb').click(function(){
-                            $('#det_pkb').slideToggle('slow');
-                            if($(this).text() == 'TUTUP RINCIAN PKB')
-                            {
-                                $(this).text('LIHAT RINCIAN PKB');
-                            }
-                            else
-                            {
-                                $(this).text('TUTUP RINCIAN PKB');
-                            }
-                        });
-
-                        $('#form-content').on('hidden.bs.modal', function () {
-                                $(this).find('form').trigger('reset');
-                                $("#koding").html('');
-                        });
-                        $("#pilih").click(function(){
-                                $("#form-content").modal('hide');
-                                $("#contact").attr('action', "/infopkb.php").submit();
-                        });
-                        $("input#cari").click(function(){
-                                $.ajax({
-                                        type: "POST",
-                                        url: "carikode.php", //
-                                        data: $('form.contact').serialize(),
-                                        success: function(msg){
-                                                $("#koding").html(msg)
-                                        },
-                                        error: function(){
-						alert("failure");
-                                        }
-                                });
-                        });
+            $(document).ready(function () {
+                $('#det_swd').hide();
+                $('#show_det_swd').click(function(){
+                    $('#det_swd').slideToggle('slow');
+                    if($(this).text() == 'TUTUP RINCIAN SWDKLLJ')
+                    {
+                        $(this).text('LIHAT RINCIAN SWDKLLJ');
+                    }
+                    else
+                    {
+                        $(this).text('TUTUP RINCIAN SWDKLLJ');
+                    }
                 });
+
+                $('#det_pkb').hide();
+                $('#show_det_pkb').click(function(){
+                    $('#det_pkb').slideToggle('slow');
+                    if($(this).text() == 'TUTUP RINCIAN PKB')
+                    {
+                        $(this).text('LIHAT RINCIAN PKB');
+                    }
+                    else
+                    {
+                        $(this).text('TUTUP RINCIAN PKB');
+                    }
+                });
+
+                $('#form-content').on('hidden.bs.modal', function () {
+                    $(this).find('form').trigger('reset');
+                    $("#koding").html('');
+                });
+                $("#pilih").click(function(){
+                    $("#form-content").modal('hide');
+                    $("#contact").attr('action', "/infopkb.php").submit();
+                });
+                $("input#cari").click(function(){
+                    $.ajax({
+                        type: "POST",
+                        url: "carikode.php", //
+                        data: $('form.contact').serialize(),
+                        success: function(msg){
+                            $("#koding").html(msg)
+                        },
+                        error: function(){
+                            alert("failure");
+                        }
+                    });
+                });
+            });
         </script>
 
-	<?php
-	    $f16 = "16px;";
+        <?php
+            $f16 = "16px;";
             $f18 = "18px;";
             $f20 = "20px;";
             $f24 = "24px;";
 
             if ( $detect->isMobile() ) {
-		$f16 = "12px;";
-		$f18 = "14px;";
-		$f20 = "16px;";
-		$f24 = "20px;";
+                $f16 = "12px;";
+                $f18 = "14px;";
+                $f20 = "16px;";
+                $f24 = "20px;";
             }
-	?>
+        ?>
 
-	<style>
-        .label {
-           color: #47a3da;
-           font-size: <?php echo $f16 ?>;
-        }
+        <style>
+            .label {
+                color: #47a3da;
+                font-size: <?php echo $f16 ?>;
+            }
 
-        a.kodemerek {
-           color: #47a3da;
-           font-size: 16px;
-        }
+            a.kodemerek {
+                color: #47a3da;
+                font-size: 16px;
+            }
 
-        input[type=text] {
-	   text-transform: uppercase;
-        }
+            input[type=text] {
+                text-transform: uppercase;
+            }
 
-	td {
-           vertical-align: text-top;
-	   font-size: <?php echo $f18 ?>;
-	   padding-left: 8px;
-	}
+            td {
+                vertical-align: text-top;
+                font-size: <?php echo $f18 ?>;
+                padding-left: 8px;
+            }
 
-	.enh18 {
-	   font-size: <?php echo $f18 ?>;
-        }
+            .enh18 {
+                font-size: <?php echo $f18 ?>;
+                }
 
-	.enh20 {
-	   font-size: <?php echo $f20 ?>;
-	} 
+            .enh20 {
+                font-size: <?php echo $f20 ?>;
+            } 
 
-	.enh24 {
-	   font-size: <?php echo $f24 ?>;
-	}
-
-	</style>
+            .enh24 {
+                font-size: <?php echo $f24 ?>;
+            }
+        </style>
     </head>
     <body class="cbp-spmenu-push">
         <div class="container">
@@ -1766,251 +1765,310 @@ function strip_mrk($s){
                 <h1>INFORMASI SAMSAT JAMBI</h1>
             </header>
             <?php
-		if(!$found){
-		    echo "<h2>DATA TIDAK ADA</h2>";
-		    exit;
-		}
-	    ?>
+                if(!$found){
+                    echo "<h2>DATA TIDAK ADA</h2>";
+                    exit;
+                }
+            ?>
 
             <!-- Modal -->
             <div id="form-content" class="modal fade" role="dialog">
-              <div class="modal-dialog">
-            
+                <div class="modal-dialog">
                 <!-- Modal content-->
                 <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h3>Cari Kode Merek Kendaraan</h3>
+                        <h4>
+                            <?php echo $result['nm_merek_kb'] . " " . 
+                            $result['nm_model_kb'] . " " . 
+                            $result['nm_jenis_kb'] ?>
+                        </h4>
+                    </div>
 
-        <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal">&times;</button>
-            <h3>Cari Kode Merek Kendaraan</h3>
-	    <h4><?php echo $result['nm_merek_kb'] . " " . 
-                           $result['nm_model_kb'] . " " . 
-                           $result['nm_jenis_kb'] ?></h4>
-        </div>
-
-        <div class="modal-body">
-	    <div style="height: 180px;">
-            <form class="contact" name="contact" id="contact" method="post">
-                <label class="label" for="nm_merek_kb">Merek</label><br>
-                <input type="text" name="nm_merek_kb" class="input-xlarge"><br>
-                <label class="label" for="nm_model_kb">Model/Tipe</label><br>
-                <input type="text" name="nm_model_kb" class="input-xlarge"><br>
-                <label class="label" for="nm_jenis_kb">Jenis</label><br>
-                <input type="text" name="nm_jenis_kb" class="input-xlarge"><br>
-	        <div id="kd_dipilih"></div>
-                <input type="hidden" name="no_polisi" <?php echo "value=\"" . $no_polisi . "\""; ?> ><br>
-                <input type="hidden" name="nm_pemilik" <?php echo "value=\"" . $nm_pemilik . "\""; ?> ><br>
-                <input type="hidden" name="tg_akhir_pkb" <?php echo "value=\"" . $tg_akhir_pkb . "\""; ?> ><br>
-                <input type="hidden" name="izin_ang" <?php echo "value=\"" . $izin_ang . "\""; ?> ><br>
-                <input type="hidden" name="siup_ang" <?php echo "value=\"" . $siup_ang . "\""; ?> ><br>
-                <input type="hidden" name="kir_ang" <?php echo "value=\"" . $kir_ang . "\""; ?> ><br>
-                <input type="hidden" name="kd_merek_kb" id="kd_merek_kb" class="input-xlarge" <?php echo "value=" . $result['kd_merek_kb'] ?> ><br>
-            </form>
-	    </div>
-            <input class="btn btn-success" type="submit" value="Cari" id="cari">
-            <input class="btn btn-success" type="button" Value="Batal" data-dismiss="modal">
-            <div id="koding"></div>                         
-        </div>
-        <div class="modal-footer">
-            <input class="btn btn-success" type="button" value="Ok" id="pilih">
-            <button type="button" class="btn btn-default" data-dismiss="modal">Batal</button>
-        </div>
+                    <div class="modal-body">
+                        <div style="height: 180px;">
+                            <form class="contact" name="contact" id="contact" method="post">
+                                <label class="label" for="nm_merek_kb">Merek</label><br>
+                                <input type="text" name="nm_merek_kb" class="input-xlarge"><br>
+                                <label class="label" for="nm_model_kb">Model/Tipe</label><br>
+                                <input type="text" name="nm_model_kb" class="input-xlarge"><br>
+                                <label class="label" for="nm_jenis_kb">Jenis</label><br>
+                                <input type="text" name="nm_jenis_kb" class="input-xlarge"><br>
+                                <div id="kd_dipilih"></div>
+                                <input type="hidden" name="no_polisi" <?php echo "value=\"" . $no_polisi . "\""; ?> ><br>
+                                <input type="hidden" name="nm_pemilik" <?php echo "value=\"" . $nm_pemilik . "\""; ?> ><br>
+                                <input type="hidden" name="tg_akhir_pkb" <?php echo "value=\"" . $tg_akhir_pkb . "\""; ?> ><br>
+                                <input type="hidden" name="izin_ang" <?php echo "value=\"" . $izin_ang . "\""; ?> ><br>
+                                <input type="hidden" name="siup_ang" <?php echo "value=\"" . $siup_ang . "\""; ?> ><br>
+                                <input type="hidden" name="kir_ang" <?php echo "value=\"" . $kir_ang . "\""; ?> ><br>
+                                <input type="hidden" name="kd_merek_kb" id="kd_merek_kb" class="input-xlarge" <?php echo "value=" . $result['kd_merek_kb'] ?> ><br>
+                            </form>
+                        </div>
+                        <input class="btn btn-success" type="submit" value="Cari" id="cari">
+                        <input class="btn btn-success" type="button" Value="Batal" data-dismiss="modal">
+                        <div id="koding"></div>                         
+                    </div>
+                    <div class="modal-footer">
+                        <input class="btn btn-success" type="button" value="Ok" id="pilih">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Batal</button>
+                    </div>
 
                 </div>
-              </div>
             </div>
+        </div>
 
-            <div class="main" style="width: 98%; padding: 5px;">
+        <div class="main" style="width: 98%; padding: 5px;">
 
-	        <h2>DATA KENDARAAN <?php echo $no_polisi ?></h2>
+        <h2>DATA KENDARAAN <?php echo $no_polisi ?></h2>
 		<table>
-		  <!--  <tr>
-			<td>NAMA PEMILIK</td>
-			<td>:</td>
-			<td class="enh24"><strong><?php echo $result['nm_pemilik']; ?></strong></td>
-		    </tr>
-		    <tr>
-			<td>ALAMAT</td>
-			<td>:</td>
-			<td><?php echo $result['al_pemilik']; ?></td>
-		    </tr>-->
-		    <tr>
-			<td>MEREK</td>
-			<td>:</td>
-			<td><?php echo $result['nm_merek_kb']; ?></td>
-		    </tr>
-		    <tr>
-			<td>MODEL/TIPE</td>
-			<td>:</td>
-			<td><?php echo $result['nm_model_kb']; ?></td>
-		    </tr>
-		    <tr>
-			<td>JENIS</td>
-			<td>:</td>
-			<td><?php echo $result['nm_jenis_kb']; ?></td>
-		    </tr>
-		    <tr>
-			<td>TAHUN</td>
-			<td>:</td>
-			<td><?php echo $result['th_rakitan']; ?></td>
-		    </tr>
-		    <tr>
-			<td>CC</td>
-			<td>:</td>
-			<td><?php echo $result['jumlah_cc'] . "cc"; ?></td>
-		    </tr>
-		    <tr>
-			<td>WARNA</td>
-			<td>:</td>
-			<td><?php echo $result['warna_kb']; ?></td>
-		    </tr>
-		    <tr>
-			<td>TGL. BAYAR yl.</td>
-			<td>:</td>
-			<td class="enh18"><strong><?php echo $result['tg_bayar']; ?></strong></td>
-		    </tr>
-		    <tr>
-			<td>LOKASI BAYAR yl.</td>
-			<td>:</td>
-			<td class="enh18"><strong><?php echo $result['nm_lokasi']; ?></strong></td>
-		    </tr>
-		    <tr>
-			<td>TGL. AKHIR PKB yl.</td>
-			<td>:</td>
-			<td class="enh24"><strong><?php echo $result['tg_akhir_pkb']; ?></strong></td>
-		    </tr>
-                    <tr>
-		        <?php 
+            <!-- <tr>
+                <td>NAMA PEMILIK</td>
+                <td>:</td>
+                <td class="enh24"><strong><?php echo $result['nm_pemilik']; ?></strong></td>
+            </tr>
+            <tr>
+                <td>ALAMAT</td>
+                <td>:</td>
+                <td><?php echo $result['al_pemilik']; ?></td>
+            </tr> -->
+            <tr>
+                <td>MEREK</td>
+                <td>:</td>
+                <td><?php echo $result['nm_merek_kb']; ?></td>
+            </tr>
+            <tr>
+                <td>MODEL/TIPE</td>
+                <td>:</td>
+                <td><?php echo $result['nm_model_kb']; ?></td>
+            </tr>
+            <tr>
+                <td>JENIS</td>
+                <td>:</td>
+                <td><?php echo $result['nm_jenis_kb']; ?></td>
+            </tr>
+            <tr>
+                <td>TAHUN</td>
+                <td>:</td>
+                <td><?php echo $result['th_rakitan']; ?></td>
+            </tr>
+            <tr>
+                <td>CC</td>
+                <td>:</td>
+                <td><?php echo $result['jumlah_cc'] . "cc"; ?></td>
+            </tr>
+            <tr>
+                <td>WARNA</td>
+                <td>:</td>
+                <td><?php echo $result['warna_kb']; ?></td>
+            </tr>
+            <tr>
+                <td>TGL. BAYAR yl.</td>
+                <td>:</td>
+                <td class="enh18"><strong><?php echo $result['tg_bayar']; ?></strong></td>
+            </tr>
+            <tr>
+                <td>LOKASI BAYAR yl.</td>
+                <td>:</td>
+                <td class="enh18"><strong><?php echo $result['nm_lokasi']; ?></strong></td>
+            </tr>
+            <tr>
+                <td>TGL. AKHIR PKB yl.</td>
+                <td>:</td>
+                <td class="enh24"><strong><?php echo $result['tg_akhir_pkb']; ?></strong></td>
+            </tr>
+            <tr>
+                <?php 
 		            // kalo tgl. akhir stnk-nya gak ada
-			    if(! to_date($datakb['tg_akhir_stnk']))
-				$datakb['tg_akhir_stnk'] = "";
-			?>
-                        <td>TGL. AKHIR STNK</td>
+                    if(! to_date($datakb['tg_akhir_stnk']))
+                    $datakb['tg_akhir_stnk'] = "";
+                ?>
+                <td>TGL. AKHIR STNK</td>
+                <td>:</td>
+                <td class="enh24"><strong><?php echo $datakb['tg_akhir_stnk']; ?></strong></td>
+            </tr>
+            <?php   
+                if($error){
+                    echo "</table>";
+                    echo "<h3>$errmsg</h3>";
+                    if($errno == -3){
+                                    echo "<button type=\"button\" class=\"btn btn-info btn-lg\" data-toggle=\"modal\" data-target=\"#form-content\">Cari Kode</button>";
+                    }
+                    exit;
+                }
+            ?>
+
+            <?php
+                echo "<tr>
+                        <td>TARIF DASAR</td>
                         <td>:</td>
-                        <td class="enh24"><strong><?php echo $datakb['tg_akhir_stnk']; ?></strong></td>
-                    </tr>
-		    <?php
-			if($error){
-			    echo "</table>";
-			    echo "<h3>$errmsg</h3>";
-			    if($errno == -3){
-                                echo "<button type=\"button\" class=\"btn btn-info btn-lg\" data-toggle=\"modal\" data-target=\"#form-content\">Cari Kode</button>";
-			    }
-			    exit;
-		        }
-		    ?>
+                        <td>" . str_replace(".", ",", 
+                        $datakb['pct_trf']) . "% x " .
+                        $datakb['njkb'] . " x " .
+                        $datakb['pct_pkb'] . "%</td>
+                </tr>";
 
-		    <?php
-			echo "<tr>
-			          <td>TARIF DASAR</td>
-			          <td>:</td>
-			          <td>" . str_replace(".", ",", 
-						$datakb['pct_trf']) . "% x " .
-                                          $datakb['njkb'] . " x " .
-                                          $datakb['pct_pkb'] . "%</td>
-			      </tr>";
+                if($datakb['progresif']){
+                    echo "<tr>
+                            <td>PROGRESIF</td>
+                            <td>:</td>
+                            <td>" . $datakb['progresif'] . "</td>
+                        </tr>";
+                }
+            ?>
+            <tr>
+                <td>PKB</td>
+                <td>:</td>
+                <td class="enh20"><strong><?php echo "Rp$pkb,-"; ?></strong></td>
+            </tr>
+            <tr>
+                <td>SWDKLJ</td>
+                <td>:</td>
+                <td class="enh20"><strong><?php echo "Rp$swd,-"; ?></strong></td>
+            </tr>
+            <tr>
+                <td>PNBP STNK</td>
+                <td>:</td>
+                <td class="enh20"><strong><?php echo "Rp$stnk,-"; ?></strong></td>
+            </tr>
+            <tr>
+                <td>PNBP TNKB</td>
+                <td>:</td>
+                <td class="enh20"><strong><?php echo "Rp$tnkb,-"; ?></strong></td>
+            </tr>
 
-			if($datakb['progresif']){
-			    echo "<tr>
-			              <td>PROGRESIF</td>
-			              <td>:</td>
-			              <td>" . $datakb['progresif'] . "</td>
-			          </tr>";
-			}
-		    ?>
-		    <tr>
-			<td>PKB</td>
-			<td>:</td>
-			<td class="enh20"><strong><?php echo "Rp$pkb,-"; ?></strong></td>
-		    </tr>
-		    <tr>
-			<td>SWDKLJ</td>
-			<td>:</td>
-			<td class="enh20"><strong><?php echo "Rp$swd,-"; ?></strong></td>
-		    </tr>
-                    <tr>
-                        <td>PNBP STNK</td>
-                        <td>:</td>
-                        <td class="enh20"><strong><?php echo "Rp$stnk,-"; ?></strong></td>
-                    </tr>
-                    <tr>
-                        <td>PNBP TNKB</td>
-                        <td>:</td>
-                        <td class="enh20"><strong><?php echo "Rp$tnkb,-"; ?></strong></td>
-                    </tr>
+            <?php
+                if($datakb['pemutihan'] == "Y"){
+                    $awal = $datakb['tot_pkb_awal'] +
+                            $datakb['tot_swd_awal'];
+                    $awal = number_format($awal, 0, ",", ".");
+            ?>
 
-		    <?php
-			if($datakb['pemutihan'] == "Y"){
-			    $awal = $datakb['tot_pkb_awal'] +
-				           $datakb['tot_swd_awal'];
-			    $awal = number_format($awal, 0, ",", ".");
-		    ?>
-
-                    <tr>
-                        <td>TOTAL</td>
-                        <td>:</td>
-                        <td class="enh18"><strong>
-                            <?php
-                                echo "Rp$awal,- (SEBELUM PEMUTIHAN)";
-                            ?>
-                        </strong></td>
-                    </tr>
+            <tr>
+                <td>TOTAL</td>
+                <td>:</td>
+                <td class="enh18">
+                    <strong>
+                    <?php
+                        echo "Rp$awal,- (SEBELUM PEMUTIHAN)";
+                    ?>
+                    </strong>
+                </td>
+            </tr>
 
 
-		    <?php
-			}
-		    ?>
-		    <tr>
-			<td>TOTAL</td>
-			<td>:</td>
-			<td class="enh24"><strong>
-                            <?php 
-                                echo "Rp$tot,-"; 
-				if($datakb['pemutihan'] == "Y"){
-				    echo " <span class=\"enh18\">(SESUDAH PEMUTIHAN)</span>";
-				}
-                            ?>
-                        </strong></td>
-		    </tr>
+            <?php
+                }
+            ?>
+            <tr>
+                <td>TOTAL</td>
+                <td>:</td>
+                <td class="enh24">
+                    <strong>
+                        <?php 
+                            echo "Rp$tot,-"; 
+                            if($datakb['pemutihan'] == "Y"){
+                                echo " <span class=\"enh18\">(SESUDAH PEMUTIHAN)</span>";
+                            }
+                        ?>
+                    </strong>
+                </td>
+            </tr>
 
-		    <?php
-			if($datakb['pemutihan'] == "Y"){
-			    $tot = $datakb['jml_pp_pkb'] + 
-					$datakb['jml_pp_swd'];
-			    $pkb = number_format($datakb['jml_pp_pkb'], 0, ",", ".");
-			    $swd = number_format($datakb['jml_pp_swd'], 0, ",", ".");
-			    $tot = number_format($tot, 0, ",", ".");
-		    ?>
+            <?php
+                if($datakb['pemutihan'] == "Y"){
+                    $tot = $datakb['jml_pp_pkb'] + 
+                        $datakb['jml_pp_swd'];
+                    $pkb = number_format($datakb['jml_pp_pkb'], 0, ",", ".");
+                    $swd = number_format($datakb['jml_pp_swd'], 0, ",", ".");
+                    $tot = number_format($tot, 0, ",", ".");
+            ?>
 
-                    <tr>
-                        <td>PEMUTIHAN</td>
-                        <td>:</td>
-                        <td class="enh20"><strong><?php echo "Rp$tot,-"; ?></strong></td>
-                    </tr>
+            <tr>
+                <td>PEMUTIHAN</td>
+                <td>:</td>
+                <td class="enh20"><strong><?php echo "Rp$tot,-"; ?></strong></td>
+            </tr>
 
-                    <tr>
-                        <td>PKB</td>
-                        <td>:</td>
-                        <td class="enh18"><strong><?php echo "Rp$pkb,-"; ?></strong></td>
-                    </tr>
+            <tr>
+                <td>PKB</td>
+                <td>:</td>
+                <td class="enh18"><strong><?php echo "Rp$pkb,-"; ?></strong></td>
+            </tr>
 
-                    <tr>
-                        <td>SWDKLLJ</td>
-                        <td>:</td>
-                        <td class="enh18"><strong><?php echo "Rp$swd,-"; ?></strong></td>
-                    </tr>
+            <tr>
+                <td>SWDKLLJ</td>
+                <td>:</td>
+                <td class="enh18"><strong><?php echo "Rp$swd,-"; ?></strong></td>
+            </tr>
 
-		    <?php
-		        }
-		    ?>
-		    <tr>
-			<td>TGL. AKHIR PKB yad.</td>
-			<td>:</td>
-			<td class="enh24"><strong><?php echo $tg_akhir_yad; ?></strong></td>
-		    </tr>
-		</table>
+            <?php
+                }
+            ?>
+            <tr>
+                <td>TGL. AKHIR PKB yad.</td>
+                <td>:</td>
+                <td class="enh24"><strong><?php echo $tg_akhir_yad; ?></strong></td>
+            </tr>
+        </table>
 
 
-	    <h4>RINCIAN:</h4>
+        <h4>RINCIAN:</h4>
+        <div class="row">
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-center" style="font-weight: bold; font-size: 12px;">POKOK</p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-center" style="font-weight: bold; font-size: 12px;">DENDA</p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-center" style="font-weight: bold; font-size: 12px;">TOTAL</p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-center"></p> 
+            </div>
+        </div>
+		<?php
+            $style = "font-size: 14px;";
+            if ( $detect->isMobile() ) {
+                $style = "font-size: 12px;";
+            }
+            $style = "style=\"$style\"";
+		?>
+        <div class="row">
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['pokok_pkb'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['denda_pkb'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['total_pkb'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p style="font-weight: bold; font-size: 14px; padding-left: 14px;" class="text-left">PKB</p> 
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['pokok_swd'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['denda_swd'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p class="text-right" <?php echo $style ?>><?php echo $datakb['total_swd'] ?></p> 
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-3">
+                <p style="font-weight: bold; font-size: 14px; padding-left: 14px;" class="text-left">SWDKLLJ</p> 
+            </div>
+        </div>
+
+        <div class="row">
+            <button id="show_det_pkb" class="cssbtn" style="width:170px">LIHAT RINCIAN PKB</button>
+        </div>
+        <div id="det_pkb">
+            <h4>RINCIAN PKB:</h4>
             <div class="row">
                 <div class="col-md-2 col-sm-2 col-xs-3">
                     <p class="text-center" style="font-weight: bold; font-size: 12px;">POKOK</p> 
@@ -2021,126 +2079,71 @@ function strip_mrk($s){
                 <div class="col-md-2 col-sm-2 col-xs-3">
                     <p class="text-center" style="font-weight: bold; font-size: 12px;">TOTAL</p> 
                 </div>
+            </div>
+            <?php
+                $style = "font-size: 14px;";
+                        if ( $detect->isMobile() ) {
+                    $style = "font-size: 12px;";
+                        }
+                $style = "style=\"$style\"";
+            ?>
+            <?php
+                $pkb_pok = $datakb['pkb_pok'];
+                $pkb_den = $datakb['pkb_den'];
+        
+                for($i=0;$i<6;$i++){
+                    $pok = number_format($pkb_pok[$i], 0, ",", ".");
+                    $den = number_format($pkb_den[$i], 0, ",", ".");
+                    $tot = $pkb_pok[$i] + $pkb_den[$i];
+                    $tot = number_format($tot, 0, ",", ".");
+            ?>
+            <div class="row">
                 <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-center"></p> 
+                    <p class="text-right" <?php echo $style ?>><?php echo $pok ?></p> 
+                </div>
+                <div class="col-md-2 col-sm-2 col-xs-3">
+                    <p class="text-right" <?php echo $style ?>><?php echo $den ?></p> 
+                </div>
+                <div class="col-md-2 col-sm-2 col-xs-3">
+                    <p class="text-right" <?php echo $style ?>><?php echo $tot ?></p> 
                 </div>
             </div>
-		<?php
-		    $style = "font-size: 14px;";
+            <?php } ?>
+        </div>
+
+        <div class="row">
+            <button id="show_det_swd" class="cssbtn" style="width:170px">LIHAT RINCIAN SWDKLLJ</button>
+        </div>
+        <div id="det_swd">
+            <h4>RINCIAN SWDKLLJ:</h4>
+                <div class="row">
+                    <div class="col-md-2 col-sm-2 col-xs-3">
+                        <p class="text-center" style="font-weight: bold; font-size: 12px;">POKOK</p> 
+                    </div>
+                    <div class="col-md-2 col-sm-2 col-xs-3">
+                        <p class="text-center" style="font-weight: bold; font-size: 12px;">DENDA</p> 
+                    </div>
+                    <div class="col-md-2 col-sm-2 col-xs-3">
+                        <p class="text-center" style="font-weight: bold; font-size: 12px;">TOTAL</p> 
+                    </div>
+                </div>
+                <?php
+                    $style = "font-size: 14px;";
                     if ( $detect->isMobile() ) {
-		        $style = "font-size: 12px;";
+                        $style = "font-size: 12px;";
                     }
-		    $style = "style=\"$style\"";
-		?>
-            <div class="row">
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['pokok_pkb'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['denda_pkb'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['total_pkb'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p style="font-weight: bold; font-size: 14px; padding-left: 14px;" class="text-left">PKB</p> 
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['pokok_swd'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['denda_swd'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p class="text-right" <?php echo $style ?>><?php echo $datakb['total_swd'] ?></p> 
-                </div>
-                <div class="col-md-2 col-sm-2 col-xs-3">
-                    <p style="font-weight: bold; font-size: 14px; padding-left: 14px;" class="text-left">SWDKLLJ</p> 
-                </div>
-            </div>
-
-            <div class="row">
-		<button id="show_det_pkb" class="cssbtn" style="width:170px">LIHAT RINCIAN PKB</button>
-	    </div>
-	    <div id="det_pkb">
-	        <h4>RINCIAN PKB:</h4>
-                <div class="row">
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">POKOK</p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">DENDA</p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">TOTAL</p> 
-                    </div>
-                </div>
-		    <?php
-		        $style = "font-size: 14px;";
-                        if ( $detect->isMobile() ) {
-		            $style = "font-size: 12px;";
-                        }
-		        $style = "style=\"$style\"";
-		    ?>
-	        <?php
-		    $pkb_pok = $datakb['pkb_pok'];
-		    $pkb_den = $datakb['pkb_den'];
-    
-		    for($i=0;$i<6;$i++){
-                        $pok = number_format($pkb_pok[$i], 0, ",", ".");
-                        $den = number_format($pkb_den[$i], 0, ",", ".");
-		        $tot = $pkb_pok[$i] + $pkb_den[$i];
-                        $tot = number_format($tot, 0, ",", ".");
-	        ?>
-                <div class="row">
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-right" <?php echo $style ?>><?php echo $pok ?></p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-right" <?php echo $style ?>><?php echo $den ?></p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-right" <?php echo $style ?>><?php echo $tot ?></p> 
-                    </div>
-                </div>
-	        <?php } ?>
-	    </div>
-
-            <div class="row">
-		<button id="show_det_swd" class="cssbtn" style="width:170px">LIHAT RINCIAN SWDKLLJ</button>
-	    </div>
-	    <div id="det_swd">
-	        <h4>RINCIAN SWDKLLJ:</h4>
-                <div class="row">
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">POKOK</p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">DENDA</p> 
-                    </div>
-                    <div class="col-md-2 col-sm-2 col-xs-3">
-                        <p class="text-center" style="font-weight: bold; font-size: 12px;">TOTAL</p> 
-                    </div>
-                </div>
-		    <?php
-		        $style = "font-size: 14px;";
-                        if ( $detect->isMobile() ) {
-		            $style = "font-size: 12px;";
-                        }
-		        $style = "style=\"$style\"";
-		    ?>
-	        <?php
-		    $swd_pok = $datakb['swd_pok'];
-		    $swd_den = $datakb['swd_den'];
-    
-		    for($i=0;$i<5;$i++){
+                    $style = "style=\"$style\"";
+                ?>
+                <?php
+                    $swd_pok = $datakb['swd_pok'];
+                    $swd_den = $datakb['swd_den'];
+        
+                    for($i=0;$i<5;$i++){
                         $pok = number_format($swd_pok[$i], 0, ",", ".");
                         $den = number_format($swd_den[$i], 0, ",", ".");
-		        $tot = $swd_pok[$i] + $swd_den[$i];
+                        $tot = $swd_pok[$i] + $swd_den[$i];
                         $tot = number_format($tot, 0, ",", ".");
-	        ?>
+                ?>
                 <div class="row">
                     <div class="col-md-2 col-sm-2 col-xs-3">
                         <p class="text-right" <?php echo $style ?>><?php echo $pok ?></p> 
@@ -2152,17 +2155,17 @@ function strip_mrk($s){
                         <p class="text-right" <?php echo $style ?>><?php echo $tot ?></p> 
                     </div>
                 </div>
-	        <?php } ?>
-	    </div>
+            <?php } ?>
+        </div>
 
 		<p><strong>Catatan:</strong></p>
 		<ul>
-		   <li> Jika ada selisih/perbedaan perhitungan, maka yang digunakan adalah hasil perhitungan petugas <b>SAMSAT</b>.</li>
+            <li> Jika ada selisih/perbedaan perhitungan, maka yang digunakan adalah hasil perhitungan petugas <b>SAMSAT</b>.</li>
 		</ul>
-            </div>
+        </div>
         </div>
         <!-- Bootstrap core JavaScript
-    ================================================== -->
+        ================================================== -->
         <!-- Placed at the end of the document so the pages load faster -->
         <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
         <script src="assets/js/ie10-viewport-bug-workaround.js"></script>
