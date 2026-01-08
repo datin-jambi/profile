@@ -393,6 +393,109 @@ function hitpkb(&$datakb) {
         }
     }
     
+    // Kalo ada pemutihan (SEBELUM pembulatan)
+    if ($datakb['pemutihan'] == "Y") {
+        $set_pp = $datakb['set_pp'];
+        
+        // Simpan nilai sebelum pemutihan untuk informasi
+        $pok_pkb_awal = 0;
+        foreach($pkb_pok as $value) {
+            $pok_pkb_awal += pembulatan($value);
+        }
+        
+        $den_pkb_awal = 0;
+        foreach($pkb_den as $value) {
+            $den_pkb_awal += pembulatan($value);
+        }
+        
+        $datakb['pok_pkb_awal'] = $pok_pkb_awal;
+        $datakb['den_pkb_awal'] = $den_pkb_awal;
+        $datakb['tot_pkb_awal'] = $pok_pkb_awal + $den_pkb_awal;
+        
+        // Pemutihan pokok PKB
+        switch($set_pp['pokok_pkb']) {
+            case "0":
+                // Hapus semua pokok PKB
+                for($i = 0; $i <= 5; $i++) {
+                    $pkb_pok[$i] = 0;
+                }
+                break;
+            
+            case "1":
+                // Hapus pokok PKB tahun ke-1 s/d ke-5
+                for($i = 1; $i <= 5; $i++) {
+                    $pkb_pok[$i] = 0;
+                }
+                break;
+            
+            case "2":
+                // Tidak ada pemutihan pokok
+                break;
+            
+            case "3":
+                // Hapus pokok PKB tahun ke-2 s/d ke-5
+                for($i = 2; $i <= 5; $i++) {
+                    $pkb_pok[$i] = 0;
+                }
+                break;
+            
+            case "4":
+                // Hapus pokok PKB tahun ke-3 s/d ke-5
+                for($i = 3; $i <= 5; $i++) {
+                    $pkb_pok[$i] = 0;
+                }
+                break;
+            
+            case "5":
+                // Hapus pokok PKB tahun ke-5
+                $pkb_pok[5] = 0;
+                break;
+        }
+        
+        // Pemutihan denda PKB
+        switch($set_pp['denda_pkb']) {
+            case "0":
+                // Hapus semua denda PKB
+                for($i = 0; $i <= 5; $i++) {
+                    $pkb_den[$i] = 0;
+                }
+                break;
+            
+            case "1":
+                // Hapus denda PKB tahun ke-1 s/d ke-5
+                for($i = 1; $i <= 5; $i++) {
+                    $pkb_den[$i] = 0;
+                }
+                break;
+            
+            case "2":
+                // Hapus denda PKB tahun ke-2 s/d ke-5
+                for($i = 2; $i <= 5; $i++) {
+                    $pkb_den[$i] = 0;
+                }
+                break;
+            
+            case "3":
+                // Hapus denda PKB tahun ke-3 s/d ke-5
+                for($i = 3; $i <= 5; $i++) {
+                    $pkb_den[$i] = 0;
+                }
+                break;
+            
+            case "4":
+                // Hapus denda PKB tahun ke-4 s/d ke-5
+                for($i = 4; $i <= 5; $i++) {
+                    $pkb_den[$i] = 0;
+                }
+                break;
+            
+            case "5":
+                // Hapus denda PKB tahun ke-5
+                $pkb_den[5] = 0;
+                break;
+        }
+    }
+    
     // Pembulatan PKB
     $pok = 0;
     foreach($pkb_pok as &$value) {
@@ -648,6 +751,103 @@ function hitswd(&$datakb) {
     foreach($swd_den as $value) {
         if($value > $max_denda) $value = $max_denda;
         $den += $value;
+    }
+    
+    // Kalo ada pemutihan
+    if ($datakb['pemutihan'] == "Y") {
+        $set_pp = $datakb['set_pp'];
+        
+        // Simpan nilai sebelum pemutihan
+        $datakb['pok_swd_awal'] = $pok;
+        $datakb['den_swd_awal'] = $den;
+        $datakb['tot_swd_awal'] = $pok + $den;
+        
+        // Pemutihan pokok SWDKLLJ
+        switch($set_pp['pokok_swdkllj']) {
+            case "0":
+                // Hapus semua pokok SWDKLLJ
+                for($i = 0; $i <= 4; $i++) {
+                    $swd_pok[$i] = 0;
+                }
+                break;
+            
+            case "1":
+                // Hapus pokok SWDKLLJ tahun ke-1 s/d ke-4
+                for($i = 1; $i <= 4; $i++) {
+                    $swd_pok[$i] = 0;
+                }
+                break;
+            
+            case "2":
+                // Hapus pokok SWDKLLJ tahun ke-2 s/d ke-4
+                for($i = 2; $i <= 4; $i++) {
+                    $swd_pok[$i] = 0;
+                }
+                break;
+            
+            case "3":
+                // Hapus pokok SWDKLLJ tahun ke-3 s/d ke-4
+                for($i = 3; $i <= 4; $i++) {
+                    $swd_pok[$i] = 0;
+                }
+                break;
+            
+            case "4":
+                // Hapus pokok SWDKLLJ tahun ke-4
+                $swd_pok[4] = 0;
+                break;
+        }
+        
+        // Pemutihan denda SWDKLLJ
+        switch($set_pp['denda_swdkllj']) {
+            case "0":
+                // Hapus semua denda SWDKLLJ
+                for($i = 0; $i <= 4; $i++) {
+                    $swd_den[$i] = 0;
+                }
+                break;
+            
+            case "1":
+                // Hapus denda SWDKLLJ tahun ke-1 s/d ke-4
+                for($i = 1; $i <= 4; $i++) {
+                    $swd_den[$i] = 0;
+                }
+                break;
+            
+            case "2":
+                // Hapus denda SWDKLLJ tahun ke-2 s/d ke-4
+                for($i = 2; $i <= 4; $i++) {
+                    $swd_den[$i] = 0;
+                }
+                break;
+            
+            case "3":
+                // Hapus denda SWDKLLJ tahun ke-3 s/d ke-4
+                for($i = 3; $i <= 4; $i++) {
+                    $swd_den[$i] = 0;
+                }
+                break;
+            
+            case "4":
+                // Hapus denda SWDKLLJ tahun ke-4
+                $swd_den[4] = 0;
+                break;
+        }
+        
+        // Hitung ulang total setelah pemutihan
+        $pok = 0;
+        foreach($swd_pok as $value) {
+            $pok += $value;
+        }
+        
+        $den = 0;
+        foreach($swd_den as $value) {
+            if($value > $max_denda) $value = $max_denda;
+            $den += $value;
+        }
+        
+        // Simpan jumlah pemutihan
+        $datakb['jml_pp_swd'] = $datakb['tot_swd_awal'] - ($pok + $den);
     }
     
     $datakb['swd_pok'] = $swd_pok;
@@ -925,6 +1125,9 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
             return $hasil;
         }
         
+        // Cek pemutihan pajak
+        $pemutihan_setup = getPemutihanSetup();
+        
         // Setup data untuk perhitungan (format sesuai infopkb.php)
         $datakb = $data;
         $datakb['kd_mohon'] = ".2.GTW."; // Default untuk perpanjangan STNK
@@ -941,8 +1144,8 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
         $datakb['pct_trf'] = 1.5;
         $datakb['pct_pkb'] = 100;
         $datakb['tg_akhir_pkb_yad'] = "";
-        $datakb['pemutihan'] = "T"; // Tidak ada pemutihan
-        $datakb['set_pp'] = false;
+        $datakb['pemutihan'] = $pemutihan_setup['pemutihan'];
+        $datakb['set_pp'] = ($pemutihan_setup['pemutihan'] == 'Y') ? $pemutihan_setup['set_pp'] : false;
         
         // Hitung selisih hari
         $tgl_sekarang = date('d/m/Y');
@@ -990,6 +1193,19 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
                 'no_urut' => $datakb['no_urut'],
                 'gunakan_opsen' => isset($datakb['gunakan_opsen']) ? $datakb['gunakan_opsen'] : false
             ];
+            
+            // Informasi pemutihan PKB (jika ada)
+            if ($datakb['pemutihan'] == 'Y') {
+                $hasil['pemutihan_pkb'] = [
+                    'aktif' => true,
+                    'total_awal' => isset($datakb['tot_pkb_awal']) ? $datakb['tot_pkb_awal'] : 0,
+                    'total_akhir' => $hasil['total_pkb'] + $hasil['total_opsen'],
+                    'jumlah_dibebaskan' => isset($datakb['jml_pp_pkb']) ? $datakb['jml_pp_pkb'] : 
+                        ((isset($datakb['tot_pkb_awal']) ? $datakb['tot_pkb_awal'] : 0) - $hasil['total_pkb'])
+                ];
+            } else {
+                $hasil['pemutihan_pkb'] = ['aktif' => false];
+            }
             
             // Ambil detail per tahun PKB dengan tanggal periode
             if (isset($datakb['pkb_pok']) && isset($datakb['pkb_den'])) {
@@ -1039,6 +1255,19 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
             $hasil['pokok_swdkllj'] = $datakb['pok_swd_akhir'];
             $hasil['denda_swdkllj'] = $datakb['den_swd_akhir'];
             $hasil['total_swdkllj'] = $total_swd;
+            
+            // Informasi pemutihan SWDKLLJ (jika ada)
+            if ($datakb['pemutihan'] == 'Y') {
+                $hasil['pemutihan_swd'] = [
+                    'aktif' => true,
+                    'total_awal' => isset($datakb['tot_swd_awal']) ? $datakb['tot_swd_awal'] : 0,
+                    'total_akhir' => $total_swd,
+                    'jumlah_dibebaskan' => isset($datakb['jml_pp_swd']) ? $datakb['jml_pp_swd'] :
+                        ((isset($datakb['tot_swd_awal']) ? $datakb['tot_swd_awal'] : 0) - $total_swd)
+                ];
+            } else {
+                $hasil['pemutihan_swd'] = ['aktif' => false];
+            }
             
             // Ambil detail per tahun SWDKLLJ dengan tanggal periode
             if (isset($datakb['swd_pok']) && isset($datakb['swd_den'])) {
@@ -1103,6 +1332,61 @@ function isKendaraanDiremajakan($kd_mohon) {
     // Pattern untuk kendaraan yang sudah diremajakan
     return (preg_match('/\.[36X]X\./', $kd_mohon) == 1 || 
             preg_match('/\.3[34]\./', $kd_mohon) == 1);
+}
+
+/**
+ * Cek dan setup pemutihan pajak
+ */
+function getPemutihanSetup() {
+    global $dbonl;
+    
+    $tg_daftar = date('d/m/Y');
+    $d_tg_daftar = to_date($tg_daftar);
+    
+    // Default: tidak ada pemutihan
+    $result = [
+        'pemutihan' => 'T',
+        'set_pp' => [
+            'pokok_pkb' => 'X',
+            'denda_pkb' => 'X',
+            'pokok_swdkllj' => 'X',
+            'denda_swdkllj' => 'X'
+        ]
+    ];
+    
+    // Cek apakah ada pemutihan
+    $query = "SELECT nilai FROM t_param
+                WHERE kd_param = 'SISTEM'
+                  AND kd_data = 'PEMUTIHAN-PAJAK'";
+    
+    $pemutihan = $dbonl->getvalue($query);
+    
+    // Jika ada pemutihan
+    if ($pemutihan == "Y") {
+        // Ambil tanggal awal dan akhir pemutihan
+        $tg_awal_pp = p_param("TGL-AWAL-PP");
+        $tg_akhir_pp = p_param("TGL-AKHIR-PP");
+        
+        // Baca setting pemutihan pajak
+        $query = "SELECT * FROM t_set_pp
+                    WHERE tg_awal = '" . toDbDate($tg_awal_pp) . "'
+                      AND tg_akhir = '" . toDbDate($tg_akhir_pp) . "'";
+        
+        $set_pp = $dbonl->getrow($query, "d/m/Y");
+        
+        if ($set_pp) {
+            $d_tg_awal = to_date($set_pp['tg_awal']);
+            $d_tg_akhir = to_date($set_pp['tg_akhir']);
+            
+            // Cek apakah tanggal daftar dalam periode pemutihan
+            if ($d_tg_daftar >= $d_tg_awal && $d_tg_daftar <= $d_tg_akhir) {
+                $result['pemutihan'] = 'Y';
+                $result['set_pp'] = $set_pp;
+            }
+        }
+    }
+    
+    return $result;
 }
 
 /**
@@ -1406,6 +1690,48 @@ function getNamaKepemilikan($kode) {
                             ⚠️ <?php echo $hasil_perhitungan['tarif_info']['progresif']; ?>
                         </p>
                         <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Notifikasi Pemutihan Pajak -->
+                <?php if (isset($hasil_perhitungan['pemutihan_pkb']) && $hasil_perhitungan['pemutihan_pkb']['aktif']): ?>
+                <div class="bg-green-50 p-4 rounded-lg mb-4 border-l-4 border-green-500">
+                    <h3 class="text-md font-semibold text-green-900 mb-2">🎉 Pemutihan Pajak Aktif!</h3>
+                    <div class="text-sm text-green-800">
+                        <p class="mb-1">
+                            Anda mendapatkan keringanan dari program pemutihan pajak.
+                        </p>
+                        <p class="mb-1">
+                            <strong>PKB Sebelum Pemutihan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_pkb']['total_awal']); ?>
+                        </p>
+                        <p class="mb-1">
+                            <strong>PKB Setelah Pemutihan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_pkb']['total_akhir']); ?>
+                        </p>
+                        <p class="font-semibold text-green-900">
+                            <strong>Dibebaskan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_pkb']['jumlah_dibebaskan']); ?>
+                        </p>
+                        <?php if (isset($hasil_perhitungan['pemutihan_swd']) && $hasil_perhitungan['pemutihan_swd']['aktif']): ?>
+                        <hr class="my-2 border-green-200">
+                        <p class="mb-1">
+                            <strong>SWDKLLJ Sebelum Pemutihan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_swd']['total_awal']); ?>
+                        </p>
+                        <p class="mb-1">
+                            <strong>SWDKLLJ Setelah Pemutihan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_swd']['total_akhir']); ?>
+                        </p>
+                        <p class="font-semibold text-green-900">
+                            <strong>Dibebaskan:</strong> 
+                            <?php echo formatRupiah($hasil_perhitungan['pemutihan_swd']['jumlah_dibebaskan']); ?>
+                        </p>
+                        <?php endif; ?>
+                        <p class="mt-2 text-xs text-green-600 italic">
+                            ✓ Manfaatkan program pemutihan ini sebelum masa berlaku berakhir
+                        </p>
                     </div>
                 </div>
                 <?php endif; ?>
