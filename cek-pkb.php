@@ -225,61 +225,175 @@ function hitpkb(&$datakb) {
         $datakb['sumber_njkb'] = 'estimasi'; // Tandai bahwa data estimasi
     }
     
-    // Tarif PKB
-    $pct_trf = 1.5; // Default untuk kendaraan pribadi
-    $pct_pengenaan = 100;
+    // Cek apakah menggunakan OPSEN (berlaku untuk tanggal > 5 Januari 2025)
+    $tgl_sekarang = date('d/m/Y');
+    $tgl_opsen = '05/01/2025';
+    $gunakan_opsen = (to_date($tgl_sekarang) > to_date($tgl_opsen));
     
-    if($datakb['izin_ang'] == "1") { // Kendaraan umum
-        $pct_trf = 1;
-        $pct_pengenaan = 30;
+    // Tarif PKB
+    if ($gunakan_opsen) {
+        // Aturan baru dengan OPSEN (berlaku > 5 Januari 2025)
+        $pct_trf = 1.0; // Tarif 1% untuk semua
+        $pct_pengenaan = 90.4; // Pengenaan 90.4%
+    } else {
+        // Aturan lama (sebelum 5 Januari 2025)
+        $pct_trf = 1.5; // Default untuk kendaraan pribadi
+        $pct_pengenaan = 100;
+        
+        if($datakb['izin_ang'] == "1") { // Kendaraan umum
+            $pct_trf = 1;
+            $pct_pengenaan = 30;
+        }
     }
     
-    // Simpan nilai tarif
+    // Simpan nilai tarif dan info opsen
     $datakb['pct_trf'] = $pct_trf;
     $datakb['pct_pkb'] = $pct_pengenaan;
+    $datakb['gunakan_opsen'] = $gunakan_opsen;
     
     // Gunakan nilai_njkb yang sudah dihitung (dari database atau estimasi)
     $njkb = $datakb['nilai_njkb'];
-    $trfpkb = ($pct_trf/100) * $njkb * ($pct_pengenaan/100);
     
     // Hitung tunggakan
     $tgl_sekarang = date('d/m/Y');
     $tgl_akhir_pkb = $datakb['tg_akhir_pkb'];
     $sel_tgl = selisih_tgl($tgl_akhir_pkb, $tgl_sekarang);
     
+    // Tanggal pemberlakuan OPSEN
+    $tgl_opsen = '05/01/2025';
+    $d_tgl_opsen = to_date($tgl_opsen);
+    
     $pkb_pok = [];
     $pkb_den = [];
+    $opsen_pok = [];
+    $opsen_den = [];
+    $opsen_berlaku = []; // Array untuk menyimpan status OPSEN per tahun
+    $tgl_periode = []; // Array untuk menyimpan tanggal periode per tahun
     
     for($i = 0; $i <= 5; $i++) {
         $pkb_pok[$i] = 0;
         $pkb_den[$i] = 0;
+        $opsen_pok[$i] = 0;
+        $opsen_den[$i] = 0;
+        $opsen_berlaku[$i] = false;
+        $tgl_periode[$i] = '';
     }
+    
+    // Hitung tanggal periode untuk setiap tahun dan tentukan tarif yang berlaku
+    list($d, $m, $y) = preg_split('/[-\/]/', $tgl_akhir_pkb);
     
     if($sel_tgl['n'] > 0) { // Terlambat
-        // Pokok tahun berjalan
-        $pkb_pok[0] = $trfpkb;
+        // Tahun berjalan (index 0)
+        $tahun_periode_0 = $y + $sel_tgl['y'] + 1;
+        $tgl_periode[0] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $tahun_periode_0));
+        $d_periode_0 = to_date($tgl_periode[0]);
+        $opsen_berlaku[0] = ($d_periode_0 > $d_tgl_opsen);
+        
+        // Tentukan tarif untuk tahun berjalan
+        if ($opsen_berlaku[0]) {
+            // Gunakan tarif baru (1% x 90.4%)
+            $trfpkb_0 = (1.0/100) * $njkb * (90.4/100);
+        } else {
+            // Gunakan tarif lama
+            $pct_trf_lama = ($datakb['izin_ang'] == "1") ? 1 : 1.5;
+            $pct_pengenaan_lama = ($datakb['izin_ang'] == "1") ? 30 : 100;
+            $trfpkb_0 = ($pct_trf_lama/100) * $njkb * ($pct_pengenaan_lama/100);
+        }
+        
+        $pkb_pok[0] = $trfpkb_0;
         
         // Denda tahun berjalan
-        $m = $sel_tgl['m'];
-        if($sel_tgl['d'] > 15) $m++;
-        $pkb_den[0] = (2 + ($m * 2))/100 * $trfpkb;
+        $m_denda = $sel_tgl['m'];
+        if($sel_tgl['d'] > 15) $m_denda++;
+        
+        if ($opsen_berlaku[0]) {
+            // Denda OPSEN = 1% x bulan x PKB
+            $total_bulan = $sel_tgl['y'] * 12 + $m_denda;
+            $pkb_den[0] = (1 / 100) * $total_bulan * $trfpkb_0;
+        } else {
+            // Denda lama = (2 + 2*bulan)% x PKB
+            $pkb_den[0] = (2 + ($m_denda * 2))/100 * $trfpkb_0;
+        }
+        
+        // OPSEN untuk tahun berjalan (jika berlaku)
+        if ($opsen_berlaku[0]) {
+            $opsen_pok[0] = (66 / 100) * $pkb_pok[0];
+            $opsen_den[0] = (1 / 100) * $total_bulan * $opsen_pok[0];
+        }
         
         // Tunggakan tahun sebelumnya
-        $y = $sel_tgl['y'];
-        if($y > 5) $y = 5;
+        $y_tunggakan = $sel_tgl['y'];
+        if($y_tunggakan > 5) $y_tunggakan = 5;
         
-        for($i = 1; $i <= $y; $i++) {
+        for($i = 1; $i <= $y_tunggakan; $i++) {
+            // Hitung tanggal periode untuk tahun ini
+            $tahun_periode_i = $y + $sel_tgl['y'] - $i + 1;
+            $tgl_periode[$i] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $tahun_periode_i));
+            $d_periode_i = to_date($tgl_periode[$i]);
+            $opsen_berlaku[$i] = ($d_periode_i > $d_tgl_opsen);
+            
+            // Tentukan tarif untuk tahun tunggakan
+            if ($opsen_berlaku[$i]) {
+                // Gunakan tarif baru (1% x 90.4%)
+                $trfpkb_i = (1.0/100) * $njkb * (90.4/100);
+            } else {
+                // Gunakan tarif lama
+                $pct_trf_lama = ($datakb['izin_ang'] == "1") ? 1 : 1.5;
+                $pct_pengenaan_lama = ($datakb['izin_ang'] == "1") ? 30 : 100;
+                $trfpkb_i = ($pct_trf_lama/100) * $njkb * ($pct_pengenaan_lama/100);
+            }
+            
+            $pkb_pok[$i] = $trfpkb_i;
+            
+            // Hitung denda tunggakan
             $m_tunggakan = $sel_tgl['m'] + ($i * 12);
-            if($m_tunggakan > 24) $m_tunggakan = 24;
-            $pkb_pok[$i] = $trfpkb;
-            $pkb_den[$i] = (2 + ($m_tunggakan * 2))/100 * $trfpkb;
+            if($sel_tgl['d'] > 15) $m_tunggakan++;
+            
+            if ($opsen_berlaku[$i]) {
+                // Denda OPSEN = 1% x bulan x PKB
+                $pkb_den[$i] = (1 / 100) * $m_tunggakan * $trfpkb_i;
+            } else {
+                // Denda lama = (2 + 2*bulan)% x PKB (max 48%)
+                if($m_tunggakan > 24) $m_tunggakan = 24;
+                $pkb_den[$i] = (2 + ($m_tunggakan * 2))/100 * $trfpkb_i;
+            }
+            
+            // OPSEN untuk tahun tunggakan (jika berlaku)
+            if ($opsen_berlaku[$i]) {
+                $opsen_pok[$i] = (66 / 100) * $pkb_pok[$i];
+                $total_bulan_tunggakan = $sel_tgl['m'] + ($i * 12);
+                if($sel_tgl['d'] > 15) $total_bulan_tunggakan++;
+                $opsen_den[$i] = (1 / 100) * $total_bulan_tunggakan * $opsen_pok[$i];
+            }
         }
     } else { // Tepat waktu
-        $pkb_pok[0] = $trfpkb;
+        $tahun_periode_0 = $y + 1;
+        $tgl_periode[0] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $tahun_periode_0));
+        $d_periode_0 = to_date($tgl_periode[0]);
+        $opsen_berlaku[0] = ($d_periode_0 > $d_tgl_opsen);
+        
+        // Tentukan tarif untuk pembayaran tepat waktu
+        if ($opsen_berlaku[0]) {
+            // Gunakan tarif baru (1% x 90.4%)
+            $trfpkb_0 = (1.0/100) * $njkb * (90.4/100);
+        } else {
+            // Gunakan tarif lama
+            $pct_trf_lama = ($datakb['izin_ang'] == "1") ? 1 : 1.5;
+            $pct_pengenaan_lama = ($datakb['izin_ang'] == "1") ? 30 : 100;
+            $trfpkb_0 = ($pct_trf_lama/100) * $njkb * ($pct_pengenaan_lama/100);
+        }
+        
+        $pkb_pok[0] = $trfpkb_0;
         $pkb_den[0] = 0;
+        
+        // OPSEN untuk pembayaran tepat waktu (jika berlaku)
+        if ($opsen_berlaku[0]) {
+            $opsen_pok[0] = (66 / 100) * $pkb_pok[0];
+            $opsen_den[0] = 0;
+        }
     }
     
-    // Pembulatan
+    // Pembulatan PKB
     $pok = 0;
     foreach($pkb_pok as &$value) {
         $value = pembulatan($value);
@@ -292,16 +406,36 @@ function hitpkb(&$datakb) {
         $den += $value;
     }
     
+    // Pembulatan OPSEN
+    $pok_opsen = 0; 
+    foreach($opsen_pok as &$value) {
+        $value = pembulatan($value);
+        $pok_opsen += $value;
+    }
+    
+    $den_opsen = 0;
+    foreach($opsen_den as &$value) {
+        $value = pembulatan($value);
+        $den_opsen += $value;
+    }
+    
     $datakb['pkb_pok'] = $pkb_pok;
     $datakb['pkb_den'] = $pkb_den;
     $datakb['pok_pkb_akhir'] = $pok;
     $datakb['den_pkb_akhir'] = $den;
     
-    // Tanggal jatuh tempo baru
-    list($d, $m, $y) = preg_split('/[-\/]/', $tgl_akhir_pkb);
-    $datakb['tg_akhir_pkb_yad'] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $sel_tgl['y'] + 1));
+    $datakb['opsen_pok'] = $opsen_pok;
+    $datakb['opsen_den'] = $opsen_den;
+    $datakb['pok_opsen_akhir'] = $pok_opsen;
+    $datakb['den_opsen_akhir'] = $den_opsen;
+    $datakb['opsen_berlaku'] = $opsen_berlaku; // Simpan status OPSEN per tahun
+    $datakb['tgl_periode'] = $tgl_periode; // Simpan tanggal periode per tahun
     
-    return $pok + $den;
+    // Tanggal jatuh tempo baru
+    $datakb['tg_akhir_pkb_yad'] = $tgl_periode[0]; // Gunakan tanggal periode tahun berjalan
+    
+    // Total termasuk OPSEN jika berlaku
+    return $pok + $den + $pok_opsen + $den_opsen;
 }
 
 /**
@@ -833,7 +967,16 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
             // Ambil hasil dari $datakb yang sudah dihitung
             $hasil['pokok_pkb'] = $datakb['pok_pkb_akhir'];
             $hasil['denda_pkb'] = $datakb['den_pkb_akhir'];
-            $hasil['total_pkb'] = $total_pkb;
+            
+            // Hitung total PKB (PKB pokok + denda PKB saja, tanpa OPSEN)
+            $total_pkb_only = $hasil['pokok_pkb'] + $hasil['denda_pkb'];
+            $hasil['total_pkb'] = $total_pkb_only;
+            
+            // OPSEN (jika berlaku)
+            $hasil['pokok_opsen'] = isset($datakb['pok_opsen_akhir']) ? $datakb['pok_opsen_akhir'] : 0;
+            $hasil['denda_opsen'] = isset($datakb['den_opsen_akhir']) ? $datakb['den_opsen_akhir'] : 0;
+            $hasil['total_opsen'] = $hasil['pokok_opsen'] + $hasil['denda_opsen'];
+            $hasil['gunakan_opsen'] = isset($datakb['gunakan_opsen']) ? $datakb['gunakan_opsen'] : false;
             $hasil['tgl_jatuh_tempo_baru'] = $datakb['tg_akhir_pkb_yad'];
             
             // Simpan info tarif untuk ditampilkan
@@ -842,35 +985,43 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
                 'sumber_njkb' => isset($datakb['sumber_njkb']) ? $datakb['sumber_njkb'] : 'estimasi',
                 'pct_trf' => $datakb['pct_trf'],
                 'pct_pkb' => $datakb['pct_pkb'],
+                'pct_opsen' => isset($datakb['pct_opsen']) ? $datakb['pct_opsen'] : 0,
                 'progresif' => $datakb['progresif'],
-                'no_urut' => $datakb['no_urut']
+                'no_urut' => $datakb['no_urut'],
+                'gunakan_opsen' => isset($datakb['gunakan_opsen']) ? $datakb['gunakan_opsen'] : false
             ];
             
             // Ambil detail per tahun PKB dengan tanggal periode
             if (isset($datakb['pkb_pok']) && isset($datakb['pkb_den'])) {
                 $hasil['pkb_per_tahun'] = [];
                 
-                // Hitung tanggal periode untuk setiap tahun
-                list($d, $m, $y) = preg_split('/[-\/]/', $data['tg_akhir_pkb']);
-                $sel_tgl = selisih_tgl($data['tg_akhir_pkb'], date('d/m/Y'));
-                
                 for ($i = 0; $i <= 5; $i++) {
-                    if ($datakb['pkb_pok'][$i] > 0 || $datakb['pkb_den'][$i] > 0) {
-                        // Hitung tanggal akhir periode untuk tahun ini
-                        if ($i == 0) {
-                            // Tahun berjalan - periode s/d tanggal jatuh tempo berikutnya
-                            $tahun_periode = $y + $sel_tgl['y'] + 1;
-                            $tgl_periode = date('d/m/Y', mktime(0, 0, 0, $m, $d, $tahun_periode));
+                    if ($datakb['pkb_pok'][$i] > 0 || $datakb['pkb_den'][$i] > 0 || 
+                        (isset($datakb['opsen_pok'][$i]) && $datakb['opsen_pok'][$i] > 0)) {
+                        
+                        // Ambil tanggal periode dari perhitungan
+                        $tgl_periode = isset($datakb['tgl_periode'][$i]) ? $datakb['tgl_periode'][$i] : '-';
+                        
+                        // Extract tahun dari tanggal periode
+                        if ($tgl_periode != '-') {
+                            list($d_p, $m_p, $y_p) = preg_split('/[-\/]/', $tgl_periode);
+                            $tahun_periode = $y_p;
                         } else {
-                            // Tunggakan - periode tahun yang lalu
-                            $tahun_periode = $y + $sel_tgl['y'] - $i + 1;
-                            $tgl_periode = date('d/m/Y', mktime(0, 0, 0, $m, $d, $tahun_periode));
+                            $tahun_periode = '-';
                         }
+                        
+                        // Ambil data OPSEN jika ada
+                        $opsen_pok_val = isset($datakb['opsen_pok'][$i]) ? $datakb['opsen_pok'][$i] : 0;
+                        $opsen_den_val = isset($datakb['opsen_den'][$i]) ? $datakb['opsen_den'][$i] : 0;
+                        $opsen_berlaku_val = isset($datakb['opsen_berlaku'][$i]) ? $datakb['opsen_berlaku'][$i] : false;
                         
                         $hasil['pkb_per_tahun'][$i] = [
                             'pokok' => $datakb['pkb_pok'][$i],
                             'denda' => $datakb['pkb_den'][$i],
-                            'total' => $datakb['pkb_pok'][$i] + $datakb['pkb_den'][$i],
+                            'opsen_pokok' => $opsen_pok_val,
+                            'opsen_denda' => $opsen_den_val,
+                            'opsen_berlaku' => $opsen_berlaku_val,
+                            'total' => $datakb['pkb_pok'][$i] + $datakb['pkb_den'][$i] + $opsen_pok_val + $opsen_den_val,
                             'tgl_periode' => $tgl_periode,
                             'tahun' => $tahun_periode
                         ];
@@ -933,7 +1084,7 @@ function hitungBiayaKendaraan($db, $data, $izin_angkutan = false) {
         }
         
         // Total keseluruhan
-        $hasil['grand_total'] = $hasil['total_pkb'] + $hasil['total_swdkllj'] + 
+        $hasil['grand_total'] = $hasil['total_pkb'] + $hasil['total_opsen'] + $hasil['total_swdkllj'] + 
                                 $hasil['biaya_stnk'] + $hasil['biaya_tnkb'];
         
     } catch (Exception $e) {
@@ -1234,8 +1385,15 @@ function getNamaKepemilikan($kode) {
                             <strong>Tarif Dasar PKB:</strong> 
                             <?php echo str_replace('.', ',', number_format($hasil_perhitungan['tarif_info']['pct_trf'], 1)); ?>% 
                             x <?php echo $hasil_perhitungan['tarif_info']['njkb']; ?>
-                            x <?php echo number_format($hasil_perhitungan['tarif_info']['pct_pkb'], 0); ?>%
+                            x <?php echo number_format($hasil_perhitungan['tarif_info']['pct_pkb'], 1); ?>%
                         </p>
+                        <?php if (!empty($hasil_perhitungan['tarif_info']['gunakan_opsen'])): ?>
+                        <p class="mb-1 mt-2 text-blue-900 font-semibold">
+                            <strong>OPSEN:</strong> 
+                            <?php echo $hasil_perhitungan['tarif_info']['pct_opsen']; ?>% x PKB
+                            <span class="text-xs font-normal">(Berlaku sejak 5 Januari 2025)</span>
+                        </p>
+                        <?php endif; ?>
                         <p class="text-xs text-blue-600 italic">
                             <?php if ($hasil_perhitungan['tarif_info']['sumber_njkb'] == 'database'): ?>
                                 ✓ Data NJKB dari database resmi
@@ -1273,29 +1431,41 @@ function getNamaKepemilikan($kode) {
                                         <th class="px-3 py-2 text-center text-slate-700">Tahun</th>
                                         <th class="px-3 py-2 text-right text-slate-700">Pokok</th>
                                         <th class="px-3 py-2 text-right text-slate-700">Denda</th>
+                                        <th class="px-2 py-2 text-right text-slate-700">Opsen</th>
+                                        <th class="px-2 py-2 text-right text-slate-700">Denda Opsen</th>
                                         <th class="px-3 py-2 text-right text-slate-700">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200">
                                     <?php foreach ($hasil_perhitungan['pkb_per_tahun'] as $tahun => $detail): ?>
-                                    <tr>
+                                    <tr <?php echo !empty($detail['opsen_berlaku']) ? 'class="bg-blue-50"' : ''; ?>>
                                         <td class="px-3 py-2">
                                             <?php if ($tahun == 0): ?>
                                                 <span class="font-medium text-slate-700">Tahun Berjalan</span>
                                             <?php else: ?>
                                                 <span class="text-slate-600">Tunggakan Thn -<?php echo $tahun; ?></span>
                                             <?php endif; ?>
+                                            <?php if (!empty($detail['opsen_berlaku'])): ?>
+                                                <br><small class="text-blue-600 text-xs">✓ Opsen berlaku</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-2 text-center text-slate-600 text-xs"><?php echo $detail['tgl_periode'] ?? '-'; ?></td>
                                         <td class="px-3 py-2 text-center text-slate-600 font-medium"><?php echo $detail['tahun'] ?? '-'; ?></td>
                                         <td class="px-3 py-2 text-right"><?php echo formatRupiah($detail['pokok']); ?></td>
                                         <td class="px-3 py-2 text-right text-red-600"><?php echo formatRupiah($detail['denda']); ?></td>
+                                        <td class="px-2 py-2 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-700 font-medium' : 'text-slate-400'; ?>">
+                                            <?php echo !empty($detail['opsen_berlaku']) && $detail['opsen_pokok'] > 0 ? formatRupiah($detail['opsen_pokok']) : '-'; ?>
+                                        </td>
+                                        <td class="px-2 py-2 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-600' : 'text-slate-400'; ?>">
+                                            <?php echo !empty($detail['opsen_berlaku']) && $detail['opsen_denda'] > 0 ? formatRupiah($detail['opsen_denda']) : '-'; ?>
+                                        </td>
                                         <td class="px-3 py-2 text-right font-semibold"><?php echo formatRupiah($detail['total']); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
+                    </div>
                     </div>
                 <?php elseif ($hasil_perhitungan['pokok_pkb'] > 0 || $hasil_perhitungan['denda_pkb'] > 0): ?>
                     <div class="pl-5 mb-2.5">
@@ -1304,6 +1474,25 @@ function getNamaKepemilikan($kode) {
                             Denda: <?php echo formatRupiah($hasil_perhitungan['denda_pkb']); ?>
                         </small>
                     </div>
+                <?php endif; ?>
+                
+                <!-- OPSEN PKB (jika berlaku) -->
+                <?php if (!empty($hasil_perhitungan['gunakan_opsen']) && $hasil_perhitungan['total_opsen'] > 0): ?>
+                <div class="bg-blue-50 p-4 rounded-lg mb-2.5 border border-blue-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <div class="font-semibold text-blue-800">OPSEN PKB</div>
+                            <small class="text-blue-600">Opsen Pajak Kendaraan Bermotor (66% x PKB) - Berlaku sejak 5 Jan 2025</small>
+                        </div>
+                        <div class="text-xl font-bold text-blue-900"><?php echo formatRupiah($hasil_perhitungan['total_opsen']); ?></div>
+                    </div>
+                    <div class="pl-0">
+                        <small class="text-sm text-blue-700">
+                            Pokok: <?php echo formatRupiah($hasil_perhitungan['pokok_opsen']); ?> | 
+                            Denda: <?php echo formatRupiah($hasil_perhitungan['denda_opsen']); ?>
+                        </small>
+                    </div>
+                </div>
                 <?php endif; ?>
                 
                 <!-- SWDKLLJ -->
