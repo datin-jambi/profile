@@ -330,7 +330,7 @@ function tarif_swd($db, $tgl, $kd_trf_swd, $bln) {
 /**
  * Hitung denda SWDKLLJ (sama seperti infopkb.php)
  */
-function hit_den_swd($tg_tetap, $tg_akhir, $trf_swd) {
+function hit_den_swd($tg_tetap, $tg_akhir, $trf_swd, $kd_jenis_kb = '') {
     $d_tg_tetap = to_date($tg_tetap);
     $d_tg_akhir = to_date($tg_akhir);
     
@@ -350,7 +350,10 @@ function hit_den_swd($tg_tetap, $tg_akhir, $trf_swd) {
     }
     
     $denda = ($pct / 100) * $trf_swd;
-    if($denda > 100000) $denda = 100000;
+    
+    // Batas maksimal denda berdasarkan jenis kendaraan
+    $max_denda = ($kd_jenis_kb == 'R') ? 35000 : 100000;
+    if($denda > $max_denda) $denda = $max_denda;
     
     return $denda;
 }
@@ -449,10 +452,12 @@ function hitswd(&$datakb) {
                 if($trfswd) {
                     $swd_pok[$i] = $trfswd['prorata_12'];
                     $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
-                    if($swd_den[$i] > 100000) $swd_den[$i] = 100000;
+                    $max_denda = ($datakb['kd_jenis_kb'] == 'R') ? 35000 : 100000;
+                    if($swd_den[$i] > $max_denda) $swd_den[$i] = $max_denda;
                 } else {
                     $swd_pok[$i] = $trfswd_base['prorata_12'];
-                    $swd_den[$i] = 100000; // Denda maksimal
+                    $max_denda = ($datakb['kd_jenis_kb'] == 'R') ? 35000 : 100000;
+                    $swd_den[$i] = $max_denda; // Denda maksimal
                 }
             }
         } else {
@@ -469,10 +474,12 @@ function hitswd(&$datakb) {
                     if($trfswd) {
                         $swd_pok[$i] = $trfswd['prorata_12'];
                         $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
-                        if($swd_den[$i] > 100000) $swd_den[$i] = 100000;
+                        $max_denda = ($datakb['kd_jenis_kb'] == 'R') ? 35000 : 100000;
+                        if($swd_den[$i] > $max_denda) $swd_den[$i] = $max_denda;
                     } else {
                         $swd_pok[$i] = $trfswd_base['prorata_12'];
-                        $swd_den[$i] = 100000;
+                        $max_denda = ($datakb['kd_jenis_kb'] == 'R') ? 35000 : 100000;
+                        $swd_den[$i] = $max_denda;
                     }
                 }
             }
@@ -489,7 +496,7 @@ function hitswd(&$datakb) {
         
         // Hitung denda tahun berjalan menggunakan fungsi hit_den_swd
         $trf_swd_denda = $trfswd['prorata_12'] - $trfswd['krt_swd'];
-        $swd_den[0] = hit_den_swd($tg_daftar, $tg_pre_jr, $trf_swd_denda);
+        $swd_den[0] = hit_den_swd($tg_daftar, $tg_pre_jr, $trf_swd_denda, $datakb['kd_jenis_kb']);
         
     } else {
         // Belum terlambat
@@ -503,8 +510,9 @@ function hitswd(&$datakb) {
     }
     
     $den = 0;
+    $max_denda = ($datakb['kd_jenis_kb'] == 'R') ? 35000 : 100000;
     foreach($swd_den as $value) {
-        if($value > 100000) $value = 100000;
+        if($value > $max_denda) $value = $max_denda;
         $den += $value;
     }
     
