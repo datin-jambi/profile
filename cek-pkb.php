@@ -1495,80 +1495,105 @@ function getNamaKepemilikan($kode) {
         <?php endif; ?>
         
         <!-- FORM INPUT -->
-        <div class="bg-white rounded-2xl p-7 shadow-2xl mb-5">
-            <h2 class="text-2xl font-semibold text-slate-800 mb-5 pb-4 border-b-2 border-blue-600">📋 Form Pencarian Data Kendaraan</h2>
+        <div class="bg-white rounded-xl p-8 shadow-lg border border-slate-100 mb-6">
+            <div class="flex items-center gap-3 mb-6 pb-5 border-b-2 border-blue-500">
+                <div class="bg-blue-100 p-3 rounded-lg">
+                    <span class="text-2xl">📋</span>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 m-0">Form Pencarian Data Kendaraan</h2>
+            </div>
             
             <form method="POST" action="">
-                <div class="mb-5">
-                    <label class="block font-semibold text-slate-700 mb-2">
+                <div class="mb-6">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">
                         Nomor Polisi <span class="text-red-600">*</span>
                     </label>
                     <input 
                         type="text" 
                         name="no_polisi" 
-                        class="w-full px-4 py-3 border-2 border-slate-300 rounded-lg text-base uppercase transition-all focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" 
+                        class="w-full px-5 py-3.5 border-2 border-slate-200 rounded-xl text-base uppercase transition-all focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300 bg-white" 
                         placeholder="Contoh: BH1234AB"
                         value="<?php echo isset($_POST['no_polisi']) ? htmlspecialchars($_POST['no_polisi']) : ''; ?>"
                         required
                         autofocus
                     >
-                    <small class="block text-sm text-slate-500 mt-1">Masukkan nomor polisi tanpa spasi atau tanda baca</small>
+                    <small class="block text-xs text-slate-500 mt-2">💡 Masukkan nomor polisi tanpa spasi atau tanda baca</small>
                 </div>
                 
-                <div class="mb-5">
-                    <label class="block font-semibold text-slate-700 mb-2">Nama Pemilik (Opsional)</label>
+                <div class="mb-6">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">
+                        Nama Pemilik <span class="text-slate-400 text-xs normal-case">(Opsional)</span>
+                    </label>
                     <input 
                         type="text" 
                         name="nm_pemilik" 
-                        class="w-full px-4 py-3 border-2 border-slate-300 rounded-lg text-base uppercase transition-all focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" 
+                        class="w-full px-5 py-3.5 border-2 border-slate-200 rounded-xl text-base uppercase transition-all focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300 bg-white" 
                         placeholder="Isi jika ada kendaraan dobel dengan nomor polisi sama"
                         value="<?php echo isset($_POST['nm_pemilik']) ? htmlspecialchars($_POST['nm_pemilik']) : ''; ?>"
                     >
-                    <small class="block text-sm text-slate-500 mt-1">Isi hanya jika nama pemilik yang ditampilkan berbeda</small>
+                    <small class="block text-xs text-slate-500 mt-2">💡 Isi hanya jika nama pemilik yang ditampilkan berbeda</small>
                 </div>
                 
-                <div class="mb-5">
-                    <label class="block font-semibold text-slate-700 mb-2">Tanggal Akhir PKB (Opsional)</label>
+                <div class="mb-6">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">
+                        Tanggal Pencarian PKB <span class="text-slate-400 text-xs normal-case">(Otomatis)</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="tg_cek" 
+                        id="tg_cek" 
+                        class="w-full px-5 py-3.5 border-2 border-slate-200 rounded-xl text-base transition-all focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300 bg-slate-50" 
+                        value="<?php echo isset($_POST['tg_cek']) ? htmlspecialchars($_POST['tg_cek']) : date('d/m/Y'); ?>"
+                    >
+                    <small class="block text-xs text-slate-500 mt-2">💡 Default adalah tanggal hari ini, bisa diubah sesuai kebutuhan</small>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">
+                        Tanggal Akhir PKB <span class="text-slate-400 text-xs normal-case">(Opsional)</span>
+                    </label>
                     <input 
                         type="text" 
                         name="tg_akhir_pkb" 
-                        class="w-full px-4 py-3 border-2 border-slate-300 rounded-lg text-base transition-all focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" 
+                        class="w-full px-5 py-3.5 border-2 border-slate-200 rounded-xl text-base transition-all focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300 bg-white" 
                         placeholder="Format: dd/mm/yyyy atau ddmmyyyy"
                         value="<?php echo isset($_POST['tg_akhir_pkb']) ? htmlspecialchars($_POST['tg_akhir_pkb']) : ''; ?>"
                     >
-                    <small class="block text-sm text-slate-500 mt-1">Isi jika tanggal akhir PKB yang ditampilkan berbeda</small>
+                    <small class="block text-xs text-slate-500 mt-2">💡 Isi jika tanggal akhir PKB yang ditampilkan berbeda</small>
                 </div>
                 
-                <div class="mb-5">
-                    <label class="block font-semibold text-slate-700 mb-2">Tanggal Akhir STNK (Opsional)</label>
+                <div class="mb-6">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">
+                        Tanggal Akhir STNK <span class="text-slate-400 text-xs normal-case">(Opsional)</span>
+                    </label>
                     <input 
                         type="text" 
                         name="tg_akhir_stnk" 
-                        class="w-full px-4 py-3 border-2 border-slate-300 rounded-lg text-base transition-all focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" 
+                        class="w-full px-5 py-3.5 border-2 border-slate-200 rounded-xl text-base transition-all focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300 bg-white" 
                         placeholder="Format: dd/mm/yyyy atau ddmmyyyy"
                         value="<?php echo isset($_POST['tg_akhir_stnk']) ? htmlspecialchars($_POST['tg_akhir_stnk']) : ''; ?>"
                     >
-                    <small class="block text-sm text-slate-500 mt-1">Isi jika tanggal akhir STNK yang ditampilkan berbeda</small>
+                    <small class="block text-xs text-slate-500 mt-2">💡 Isi jika tanggal akhir STNK yang ditampilkan berbeda</small>
                 </div>
                 
-                <div class="mb-5">
-                    <label class="block font-semibold text-slate-700 mb-2">Kendaraan Umum</label>
-                    <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                <div class="mb-7">
+                    <label class="block font-semibold text-slate-700 mb-2.5 text-sm uppercase tracking-wide">Kendaraan Umum</label>
+                    <div class="flex items-center p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border-2 border-slate-200 hover:border-slate-300 transition-all">
                         <input 
                             type="checkbox" 
                             name="izin_ang" 
                             id="izin_ang"
-                            class="w-5 h-5 mr-2.5 cursor-pointer"
+                            class="w-5 h-5 mr-3 cursor-pointer accent-blue-600"
                             <?php echo (isset($_POST['izin_ang']) && $_POST['izin_ang'] === 'on') ? 'checked' : ''; ?>
                         >
-                        <label for="izin_ang" class="m-0 cursor-pointer">
-                            Memiliki izin angkutan umum yang masih berlaku
+                        <label for="izin_ang" class="m-0 cursor-pointer text-slate-700 font-medium">
+                            🚌 Memiliki izin angkutan umum yang masih berlaku
                         </label>
                     </div>
                 </div>
                 
-                <button type="submit" class="w-full px-7 py-3 border-0 rounded-lg text-lg font-semibold cursor-pointer transition-all bg-blue-600 text-white hover:bg-blue-700 hover:-translate-y-0.5 hover:shadow-lg">
-                    🔍 Cek Informasi PKB
+                <button type="submit" class="w-full px-8 py-4 border-0 rounded-xl text-lg font-bold cursor-pointer transition-all bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 hover:shadow-xl transform hover:-translate-y-1 active:translate-y-0 shadow-lg">
+                    <span class="text-xl mr-2">🔍</span> Cek Informasi PKB Sekarang
                 </button>
             </form>
         </div>
@@ -1577,13 +1602,24 @@ function getNamaKepemilikan($kode) {
         <?php if ($form_submitted && $data_kendaraan && !$error_message): ?>
             
         <!-- Data Kendaraan -->
-        <div class="bg-white rounded-2xl p-7 shadow-2xl mb-5">
-            <h2 class="text-2xl font-semibold text-slate-800 mb-5 pb-4 border-b-2 border-blue-600">🚙 Data Kendaraan</h2>
+        <div class="bg-white rounded-xl p-8 shadow-lg border border-slate-100 mb-6">
+            <div class="flex items-center gap-3 mb-6 pb-5 border-b-2 border-emerald-500">
+                <div class="bg-emerald-100 p-3 rounded-lg">
+                    <span class="text-2xl">🚙</span>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 m-0">Data Kendaraan</h2>
+            </div>
             
-            <table class="w-full mb-5">
-                <tr>
-                    <td class="p-3 border-b border-slate-200 font-semibold text-slate-600 w-48">Nomor Polisi</td>
-                    <td class="p-3 border-b border-slate-200 text-slate-800"><strong class="text-xl text-blue-600"><?php echo $data_kendaraan['no_polisi']; ?></strong></td>
+            <div class="bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200 overflow-hidden">
+            <table class="w-full">
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-4 font-semibold text-slate-600 w-48 text-sm uppercase tracking-wide">Nomor Polisi</td>
+                    <td class="p-4 text-slate-800">
+                        <div class="inline-flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-lg">
+                            <span class="text-xl">🚗</span>
+                            <strong class="text-xl text-blue-700"><?php echo $data_kendaraan['no_polisi']; ?></strong>
+                        </div>
+                    </td>
                 </tr>
                 <tr>
                     <td class="p-3 border-b border-slate-200 font-semibold text-slate-600">Merek</td>
@@ -1653,13 +1689,20 @@ function getNamaKepemilikan($kode) {
         
         <!-- Rincian Biaya -->
         <?php if ($hasil_perhitungan['grand_total'] > 0): ?>
-            <div class="bg-white rounded-2xl p-7 shadow-2xl mb-5">
-                <h2 class="text-2xl font-semibold text-slate-800 mb-5 pb-4 border-b-2 border-blue-600">💰 Rincian Biaya</h2>
+            <div class="bg-white rounded-xl p-8 shadow-lg border border-slate-100 mb-6">
+                <div class="flex items-center gap-3 mb-6 pb-5 border-b-2 border-amber-500">
+                    <div class="bg-amber-100 p-3 rounded-lg">
+                        <span class="text-2xl">💰</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 m-0">Rincian Biaya</h2>
+                </div>
                 
                 <!-- Info Tarif Dasar -->
                 <?php if (isset($hasil_perhitungan['tarif_info'])): ?>
-                <div class="bg-blue-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
-                    <h3 class="text-md font-semibold text-blue-900 mb-2">📊 Informasi Tarif</h3>
+                <div class="bg-blue-50 p-5 rounded-xl mb-5 border-l-4 border-blue-500">
+                    <h3 class="text-base font-bold text-blue-900 mb-3 flex items-center gap-2">
+                        <span>📊</span> Informasi Tarif
+                    </h3>
                     <div class="text-sm text-blue-800">
                         <p class="mb-2">
                             <strong>NJKB:</strong> 
@@ -1696,8 +1739,10 @@ function getNamaKepemilikan($kode) {
                 
                 <!-- Notifikasi Pemutihan Pajak -->
                 <?php if (isset($hasil_perhitungan['pemutihan_pkb']) && $hasil_perhitungan['pemutihan_pkb']['aktif']): ?>
-                <div class="bg-green-50 p-4 rounded-lg mb-4 border-l-4 border-green-500">
-                    <h3 class="text-md font-semibold text-green-900 mb-2">🎉 Pemutihan Pajak Aktif!</h3>
+                <div class="bg-green-50 p-5 rounded-xl mb-5 border-l-4 border-green-500 shadow-sm">
+                    <h3 class="text-base font-bold text-green-900 mb-3 flex items-center gap-2">
+                        <span>🎉</span> Pemutihan Pajak Aktif!
+                    </h3>
                     <div class="text-sm text-green-800">
                         <p class="mb-1">
                             Anda mendapatkan keringanan dari program pemutihan pajak.
@@ -1750,42 +1795,42 @@ function getNamaKepemilikan($kode) {
                     <div class="pl-5 mb-4">
                         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
                             <table class="w-full text-sm">
-                                <thead class="bg-slate-100">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-slate-700">Periode</th>
-                                        <th class="px-3 py-2 text-center text-slate-700">Tanggal Akhir</th>
-                                        <th class="px-3 py-2 text-center text-slate-700">Tahun</th>
-                                        <th class="px-3 py-2 text-right text-slate-700">Pokok</th>
-                                        <th class="px-3 py-2 text-right text-slate-700">Denda</th>
-                                        <th class="px-2 py-2 text-right text-slate-700">Opsen</th>
-                                        <th class="px-2 py-2 text-right text-slate-700">Denda Opsen</th>
-                                        <th class="px-3 py-2 text-right text-slate-700">Subtotal</th>
+                                <thead class="bg-gradient-to-r from-slate-100 to-slate-50">
+                                    <tr class="border-b-2 border-slate-300">
+                                        <th class="px-4 py-3.5 text-left text-slate-700 font-bold text-xs uppercase tracking-wider">Periode</th>
+                                        <th class="px-4 py-3.5 text-center text-slate-700 font-bold text-xs uppercase tracking-wider">Tanggal Akhir</th>
+                                        <!-- <th class="px-4 py-3.5 text-center text-slate-700 font-bold text-xs uppercase tracking-wider">Tahun</th> -->
+                                        <th class="px-4 py-3.5 text-right text-slate-700 font-bold text-xs uppercase tracking-wider">Pokok</th>
+                                        <th class="px-4 py-3.5 text-right text-slate-700 font-bold text-xs uppercase tracking-wider">Denda</th>
+                                        <th class="px-3 py-3.5 text-right text-slate-700 font-bold text-xs uppercase tracking-wider">Opsen</th>
+                                        <th class="px-3 py-3.5 text-right text-slate-700 font-bold text-xs uppercase tracking-wider">Denda Opsen</th>
+                                        <th class="px-4 py-3.5 text-right text-slate-700 font-bold text-xs uppercase tracking-wider">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200">
                                     <?php foreach ($hasil_perhitungan['pkb_per_tahun'] as $tahun => $detail): ?>
-                                    <tr <?php echo !empty($detail['opsen_berlaku']) ? 'class="bg-blue-50"' : ''; ?>>
-                                        <td class="px-3 py-2">
+                                    <tr class="hover:bg-slate-50 transition-colors <?php echo !empty($detail['opsen_berlaku']) ? 'bg-blue-50' : ''; ?>">
+                                        <td class="px-4 py-3">
                                             <?php if ($tahun == 0): ?>
-                                                <span class="font-medium text-slate-700">Tahun Berjalan</span>
+                                                <span class="font-semibold text-slate-800">Tahun Berjalan</span>
                                             <?php else: ?>
                                                 <span class="text-slate-600">Tunggakan Thn -<?php echo $tahun; ?></span>
                                             <?php endif; ?>
                                             <?php if (!empty($detail['opsen_berlaku'])): ?>
-                                                <br><small class="text-blue-600 text-xs">✓ Opsen berlaku</small>
+                                                <br><span class="inline-block mt-1 px-2 py-0.5 bg-blue-200 text-blue-800 rounded-full text-xs font-medium">✓ Opsen berlaku</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-3 py-2 text-center text-slate-600 text-xs"><?php echo $detail['tgl_periode'] ?? '-'; ?></td>
-                                        <td class="px-3 py-2 text-center text-slate-600 font-medium"><?php echo $detail['tahun'] ?? '-'; ?></td>
-                                        <td class="px-3 py-2 text-right"><?php echo formatRupiah($detail['pokok']); ?></td>
-                                        <td class="px-3 py-2 text-right text-red-600"><?php echo formatRupiah($detail['denda']); ?></td>
-                                        <td class="px-2 py-2 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-700 font-medium' : 'text-slate-400'; ?>">
+                                        <td class="px-4 py-3 text-center text-slate-600 text-xs font-medium"><?php echo $detail['tgl_periode'] ?? '-'; ?></td>
+                                        <!-- <td class="px-4 py-3 text-center text-slate-600 font-semibold"><?php echo $detail['tahun'] ?? '-'; ?></td> -->
+                                        <td class="px-4 py-3 text-right text-slate-700"><?php echo formatRupiah($detail['pokok']); ?></td>
+                                        <td class="px-4 py-3 text-right text-red-600 font-medium"><?php echo formatRupiah($detail['denda']); ?></td>
+                                        <td class="px-3 py-3 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-700 font-semibold' : 'text-slate-400'; ?>">
                                             <?php echo !empty($detail['opsen_berlaku']) && $detail['opsen_pokok'] > 0 ? formatRupiah($detail['opsen_pokok']) : '-'; ?>
                                         </td>
-                                        <td class="px-2 py-2 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-600' : 'text-slate-400'; ?>">
+                                        <td class="px-3 py-3 text-right <?php echo !empty($detail['opsen_berlaku']) ? 'text-blue-600 font-medium' : 'text-slate-400'; ?>">
                                             <?php echo !empty($detail['opsen_berlaku']) && $detail['opsen_denda'] > 0 ? formatRupiah($detail['opsen_denda']) : '-'; ?>
                                         </td>
-                                        <td class="px-3 py-2 text-right font-semibold"><?php echo formatRupiah($detail['total']); ?></td>
+                                        <td class="px-4 py-3 text-right font-bold text-slate-800"><?php echo formatRupiah($detail['total']); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -1839,7 +1884,7 @@ function getNamaKepemilikan($kode) {
                                     <tr>
                                         <th class="px-3 py-2 text-left text-slate-700">Periode</th>
                                         <th class="px-3 py-2 text-center text-slate-700">Tanggal Akhir</th>
-                                        <th class="px-3 py-2 text-center text-slate-700">Tahun</th>
+                                        <!-- <th class="px-3 py-2 text-center text-slate-700">Tahun</th> -->
                                         <th class="px-3 py-2 text-right text-slate-700">Pokok</th>
                                         <th class="px-3 py-2 text-right text-slate-700">Denda</th>
                                         <th class="px-3 py-2 text-right text-slate-700">Subtotal</th>
@@ -1856,7 +1901,7 @@ function getNamaKepemilikan($kode) {
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-2 text-center text-slate-600 text-xs"><?php echo $detail['tgl_periode'] ?? '-'; ?></td>
-                                        <td class="px-3 py-2 text-center text-slate-600 font-medium"><?php echo $detail['tahun'] ?? '-'; ?></td>
+                                        <!-- <td class="px-3 py-2 text-center text-slate-600 font-medium"><?php echo $detail['tahun'] ?? '-'; ?></td> -->
                                         <td class="px-3 py-2 text-right"><?php echo formatRupiah($detail['pokok']); ?></td>
                                         <td class="px-3 py-2 text-right text-red-600"><?php echo formatRupiah($detail['denda']); ?></td>
                                         <td class="px-3 py-2 text-right font-semibold"><?php echo formatRupiah($detail['total']); ?></td>
@@ -1898,9 +1943,9 @@ function getNamaKepemilikan($kode) {
                 <?php endif; ?>
                 
                 <!-- Total -->
-                <div class="gradient-price text-white p-6 rounded-xl my-5 text-center">
-                    <h3 class="text-lg mb-2.5 opacity-90">TOTAL YANG HARUS DIBAYAR</h3>
-                    <div class="text-4xl font-bold my-2.5"><?php echo formatRupiah($hasil_perhitungan['grand_total']); ?></div>
+                <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-8 rounded-2xl my-6 text-center shadow-xl border-2 border-emerald-500">
+                    <h3 class="text-sm font-bold mb-3 opacity-90 uppercase tracking-widest">Total Yang Harus Dibayar</h3>
+                    <div class="text-5xl font-extrabold my-4 drop-shadow-lg"><?php echo formatRupiah($hasil_perhitungan['grand_total']); ?></div>
                     <?php if ($hasil_perhitungan['tgl_jatuh_tempo_baru']): ?>
                         <p class="mt-2.5 opacity-90">
                             Berlaku s/d: <?php echo $hasil_perhitungan['tgl_jatuh_tempo_baru']; ?>
