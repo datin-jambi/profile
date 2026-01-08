@@ -225,18 +225,18 @@ function hitpkb(&$datakb) {
         $datakb['sumber_njkb'] = 'estimasi'; // Tandai bahwa data estimasi
     }
     
-    // Cek apakah menggunakan OPSEN (berlaku untuk tanggal > 5 Januari 2025)
+    // Cek apakah menggunakan OPSEN (berlaku untuk tanggal > 5 Januari 2026)
     $tgl_sekarang = date('d/m/Y');
-    $tgl_opsen = '05/01/2025';
+    $tgl_opsen = '05/01/2026';
     $gunakan_opsen = (to_date($tgl_sekarang) > to_date($tgl_opsen));
     
     // Tarif PKB
     if ($gunakan_opsen) {
-        // Aturan baru dengan OPSEN (berlaku > 5 Januari 2025)
+        // Aturan baru dengan OPSEN (berlaku > 5 Januari 2026)
         $pct_trf = 1.0; // Tarif 1% untuk semua
         $pct_pengenaan = 90.4; // Pengenaan 90.4%
     } else {
-        // Aturan lama (sebelum 5 Januari 2025)
+        // Aturan lama (sebelum 5 Januari 2026)
         $pct_trf = 1.5; // Default untuk kendaraan pribadi
         $pct_pengenaan = 100;
         
@@ -260,7 +260,7 @@ function hitpkb(&$datakb) {
     $sel_tgl = selisih_tgl($tgl_akhir_pkb, $tgl_sekarang);
     
     // Tanggal pemberlakuan OPSEN
-    $tgl_opsen = '05/01/2025';
+    $tgl_opsen = '05/01/2026';
     $d_tgl_opsen = to_date($tgl_opsen);
     
     $pkb_pok = [];
@@ -303,22 +303,37 @@ function hitpkb(&$datakb) {
         $pkb_pok[0] = $trfpkb_0;
         
         // Denda tahun berjalan
-        $m_denda = $sel_tgl['m'];
-        if($sel_tgl['d'] > 15) $m_denda++;
+        $d_periode_0_check = to_date($tgl_periode[0]);
+        $d_sekarang = to_date($tgl_sekarang);
         
         if ($opsen_berlaku[0]) {
-            // Denda OPSEN = 1% x bulan x PKB
-            $total_bulan = $sel_tgl['y'] * 12 + $m_denda;
-            $pkb_den[0] = (1 / 100) * $total_bulan * $trfpkb_0;
+            // Sistem OPSEN: hanya ada denda jika periode sudah lewat
+            if ($d_sekarang > $d_periode_0_check) {
+                // Periode tahun berjalan sudah lewat, ada denda
+                $sel_dari_periode_0 = selisih_tgl($tgl_periode[0], $tgl_sekarang);
+                $m_denda = $sel_dari_periode_0['y'] * 12 + $sel_dari_periode_0['m'];
+                if($sel_dari_periode_0['d'] > 15) $m_denda++;
+                
+                // Denda PKB dengan sistem OPSEN = 1% x bulan x PKB
+                $pkb_den[0] = (1 / 100) * $m_denda * $trfpkb_0;
+                
+                // OPSEN
+                $opsen_pok[0] = (66 / 100) * $pkb_pok[0];
+                // Denda OPSEN = 1% x bulan x OPSEN
+                $opsen_den[0] = (1 / 100) * $m_denda * $opsen_pok[0];
+            } else {
+                // Periode belum jatuh tempo, tidak ada denda
+                $pkb_den[0] = 0;
+                $opsen_pok[0] = (66 / 100) * $pkb_pok[0];
+                $opsen_den[0] = 0;
+            }
         } else {
+            // Sistem lama: selalu hitung denda dari tgl_akhir_pkb asli
+            $m_denda = $sel_tgl['m'];
+            if($sel_tgl['d'] > 15) $m_denda++;
+            
             // Denda lama = (2 + 2*bulan)% x PKB
             $pkb_den[0] = (2 + ($m_denda * 2))/100 * $trfpkb_0;
-        }
-        
-        // OPSEN untuk tahun berjalan (jika berlaku)
-        if ($opsen_berlaku[0]) {
-            $opsen_pok[0] = (66 / 100) * $pkb_pok[0];
-            $opsen_den[0] = (1 / 100) * $total_bulan * $opsen_pok[0];
         }
         
         // Tunggakan tahun sebelumnya
@@ -346,24 +361,41 @@ function hitpkb(&$datakb) {
             $pkb_pok[$i] = $trfpkb_i;
             
             // Hitung denda tunggakan
-            $m_tunggakan = $sel_tgl['m'] + ($i * 12);
-            if($sel_tgl['d'] > 15) $m_tunggakan++;
+            $d_periode_i_check = to_date($tgl_periode[$i]);
             
-            if ($opsen_berlaku[$i]) {
-                // Denda OPSEN = 1% x bulan x PKB
-                $pkb_den[$i] = (1 / 100) * $m_tunggakan * $trfpkb_i;
+            if ($d_sekarang > $d_periode_i_check) {
+                // Periode sudah lewat, hitung denda
+                if ($opsen_berlaku[$i]) {
+                    // Sistem OPSEN: hitung dari tgl_periode[$i] ke sekarang
+                    $sel_dari_periode_i = selisih_tgl($tgl_periode[$i], $tgl_sekarang);
+                    $m_tunggakan = $sel_dari_periode_i['y'] * 12 + $sel_dari_periode_i['m'];
+                    if($sel_dari_periode_i['d'] > 15) $m_tunggakan++;
+                    
+                    // Denda PKB dengan sistem OPSEN = 1% x bulan x PKB
+                    $pkb_den[$i] = (1 / 100) * $m_tunggakan * $trfpkb_i;
+                    
+                    // OPSEN
+                    $opsen_pok[$i] = (66 / 100) * $pkb_pok[$i];
+                    // Denda OPSEN = 1% x bulan x OPSEN
+                    $opsen_den[$i] = (1 / 100) * $m_tunggakan * $opsen_pok[$i];
+                } else {
+                    // Sistem lama: hitung dari tgl_akhir_pkb asli, tambah tahun tunggakan
+                    $m_tunggakan = $sel_tgl['m'] + ($i * 12);
+                    if($sel_tgl['d'] > 15) $m_tunggakan++;
+                    
+                    // Denda lama = (2 + 2*bulan)% x PKB (max 48%)
+                    if($m_tunggakan > 24) $m_tunggakan = 24;
+                    $pkb_den[$i] = (2 + ($m_tunggakan * 2))/100 * $trfpkb_i;
+                }
             } else {
-                // Denda lama = (2 + 2*bulan)% x PKB (max 48%)
-                if($m_tunggakan > 24) $m_tunggakan = 24;
-                $pkb_den[$i] = (2 + ($m_tunggakan * 2))/100 * $trfpkb_i;
-            }
-            
-            // OPSEN untuk tahun tunggakan (jika berlaku)
-            if ($opsen_berlaku[$i]) {
-                $opsen_pok[$i] = (66 / 100) * $pkb_pok[$i];
-                $total_bulan_tunggakan = $sel_tgl['m'] + ($i * 12);
-                if($sel_tgl['d'] > 15) $total_bulan_tunggakan++;
-                $opsen_den[$i] = (1 / 100) * $total_bulan_tunggakan * $opsen_pok[$i];
+                // Periode belum jatuh tempo, tidak ada denda
+                $pkb_den[$i] = 0;
+                
+                // OPSEN tanpa denda
+                if ($opsen_berlaku[$i]) {
+                    $opsen_pok[$i] = (66 / 100) * $pkb_pok[$i];
+                    $opsen_den[$i] = 0;
+                }
             }
         }
     } else { // Tepat waktu
