@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Kalau file atau folder ada, akses langsung
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Semua request diarahkan ke index.php
+RewriteRule ^(.*)$ index.php?route=$1 [L,QSA]
