@@ -4,6 +4,7 @@ include_once "../../../samlib.php";
 
 $error = '';
 $result = []; // Inisialisasi sebagai array
+
 $found = false;
 
 if (isset($dbonl) && !$dbonl->connected) {
@@ -26,7 +27,7 @@ $tg_bayar = "1990-01-01";
 
 if ($no_polisi) {
     // 1. Cek data transaksi tahun berjalan
-    $query = "SELECT nm_pemilik, al_pemilik, nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, kd_mohon, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_lokasi, no_urut_trn, kd_merek_kb FROM t_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
+    $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, kd_mohon, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_lokasi, no_urut_trn, kd_merek_kb FROM t_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
     $row = $dbonl->getrow($query, "d/m/Y");
     if ($row) {
         $result = $row;
@@ -35,7 +36,7 @@ if ($no_polisi) {
         $found = 1;
         $table = 't_trnkb';
         $result['nm_lokasi'] = cekLokasiBayar($result['kd_lokasi']);
-        $njkb = NilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
+        $njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
         if($njkb) {
             $result['nilai_jual_kb'] = "Rp" . number_format($njkb['nilai_jual'], 0, ',', '.') . ",- x " .str_replace(".", ",", $njkb['bobot']);
         } else {
@@ -44,7 +45,7 @@ if ($no_polisi) {
     }
     // 2. Cek data master jika belum ditemukan
     if (!$found) {
-        $query = "SELECT nm_pemilik, al_pemilik, nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_merek_kb, '-' FROM t_mstkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where";
+        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_merek_kb, '-' FROM t_mstkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where";
         $row = $dbonl->getrow($query, "d/m/Y");
         if ($row) {
             $result = p_mst2trn($row);
@@ -57,7 +58,7 @@ if ($no_polisi) {
     }
     // 3. Cek data transaksi selesai jika belum ditemukan
     if (!$found) {
-        $query = "SELECT nm_pemilik, al_pemilik, nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, no_urut_trn, kd_mohon FROM tt_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
+        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, no_urut_trn, kd_mohon FROM tt_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
         $row = $dbonl->getrow($query, "d/m/Y");
         if ($row) {
             $result = $row;
@@ -83,7 +84,7 @@ if ($no_polisi) {
     }
 }
 
-function NilaiJualKendaraan($kdMerekKb, $thnRakitan) {
+function nilaiJualKendaraan($kdMerekKb, $thnRakitan) {
     global $dbonl;
     $sql = "SELECT * FROM t_trf_nj
                 WHERE kd_merek_kb = '$kdMerekKb'
@@ -98,7 +99,6 @@ function NilaiJualKendaraan($kdMerekKb, $thnRakitan) {
     return $response;
 }
 
-
 function cekLokasiBayar($kdLokasi) {
     global $dbonl;
     $nmLokasi = $dbonl->getvalue("SELECT nm_lokasi 
@@ -107,10 +107,212 @@ function cekLokasiBayar($kdLokasi) {
     return $nmLokasi ? $nmLokasi : "-";
 }
 
+$njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
+if($njkb) {
+    $result['nilai_jual_kb'] = "Rp" . number_format($njkb['nilai_jual'], 0, ',', '.') . ",- x " .str_replace(".", ",", $njkb['bobot']);
+} else {
+    $result['nilai_jual_kb'] = "-";
+}
+
+// Bentuk dasar tagihan
+$tagihan = [
+    'terakhir_bayar' => $result['tg_bayar'] ?? null,
+    'njkb'           => $njkb ? $njkb['nilai_jual'] : 0,
+    'bobot'          => $njkb ? $njkb['bobot'] : 0,
+    'total_pajak'    => 0,
+    'total_SWDKLJ'   => 0,
+    'total_bulan'    => 0,
+    'total_hari'     => 0,
+    'row' => [
+        'PKB'    => [],
+        'SWDKLJ' => []
+    ]
+];
+
+$jarak = [
+    'hari'  => null,
+    'bulan' => null
+];
+
+if (isset($result['tg_bayar']) && $result['tg_bayar']) {
+    $jarak = jarakWaktu($result['tg_bayar']);
+}
+
+$tagihan['total_hari']  = $jarak['hari'];
+$tagihan['total_bulan'] = $jarak['bulan'];
+
+$periodeTagihan = [];
+
+if ($tagihan['total_bulan'] > 0 && $tagihan['terakhir_bayar']) {
+    $periodeTagihan = mappingPeriodeTahunan(
+        $tagihan['terakhir_bayar'],
+        $tagihan['total_bulan']
+    );
+}
+
+$cutoffOpsen = new DateTime('2025-01-06');
+
+// Buat struktur tagihan berdasarkan periode yang didapat
+foreach ($periodeTagihan as $p) {
+
+    // tentukan akhir periode
+    $akhirPeriode = new DateTime($p['sampai_tahun'] . '-01-01');
+
+    // opsen berlaku jika sebelum cutoff
+    $isOpsen = $akhirPeriode > $cutoffOpsen;
+
+    // PKB
+    $tagihan['row']['PKB'][] = [
+        'is_opsen'        => $isOpsen,
+        'periode_ke'   => $p['periode_ke'],
+        'periode'      => $p['label'],
+        'dari_tahun'   => $p['dari_tahun'],
+        'sampai_tahun' => $p['sampai_tahun'],
+        'total_bulan'  => $p['total_bulan'],
+        'pokok'        => 0,
+        'denda'        => 0,
+        'opsen'        => 0,
+        'denda_opsen'  => 0,
+        'total'        => 0
+    ];
+
+    // SWDKLJ
+    $tagihan['row']['SWDKLJ'][] = [
+        'periode_ke'   => $p['periode_ke'],
+        'periode'      => $p['label'],
+        'dari_tahun'   => $p['dari_tahun'],
+        'sampai_tahun' => $p['sampai_tahun'],
+        'total_bulan'  => $p['total_bulan'],
+        'pokok'        => 0,
+        'denda'        => 0,
+        'total'        => 0
+    ];
+}
+
+define('TARIF_NON_OPSEN', 0.015);
+define('TARIF_OPSEN',     0.01);
+
+define('PENGENAAN_NON_OPSEN', 1);
+define('PENGENAAN_OPSEN',     0.904);
+
+define('OPSEN_RATE', 0.66);
+define('DENDA_RATE_PER_BULAN', 0.02);
+define('DENDA_BASE_NON_OPSEN', 0.02);
+define('DENDA_BASE_OPSEN',     0.01);
+define('DENDA_MAX_BULAN',      24); // kalau mau dibatasi
+
+foreach ($tagihan['row']['PKB'] as $i => $row) {
+
+    // =======================
+    // PKB & OPSEN (SUDAH ADA)
+    // =======================
+    if ($row['is_opsen']) {
+        $tarif     = TARIF_OPSEN;
+        $pengenaan = PENGENAAN_OPSEN;
+    } else {
+        $tarif     = TARIF_NON_OPSEN;
+        $pengenaan = PENGENAAN_NON_OPSEN;
+    }
+
+    $pkb = $tarif
+         * $tagihan['njkb']
+         * $tagihan['bobot']
+         * $pengenaan;
+
+    $opsen = $row['is_opsen']
+        ? $pkb * OPSEN_RATE
+        : 0;
+
+    // =======================
+    // DENDA
+    // =======================
+    $bulanTelat = min($row['total_bulan'], DENDA_MAX_BULAN);
+
+    if ($row['is_opsen']) {
+        $baseDenda = DENDA_BASE_OPSEN;
+    } else {
+        $baseDenda = DENDA_BASE_NON_OPSEN;
+    }
+
+    $faktorDenda = $baseDenda + ($bulanTelat * DENDA_RATE_PER_BULAN);
+
+    $dendaPKB   = $pkb * $faktorDenda;
+    $dendaOpsen = $row['is_opsen']
+        ? $opsen * $faktorDenda
+        : 0;
+
+    // =======================
+    // ASSIGN
+    // =======================
+    $tagihan['row']['PKB'][$i]['pokok']       = round($pkb);
+    $tagihan['row']['PKB'][$i]['opsen']        = round($opsen);
+    $tagihan['row']['PKB'][$i]['denda']        = round($dendaPKB);
+    $tagihan['row']['PKB'][$i]['denda_opsen']  = round($dendaOpsen);
+    $tagihan['row']['PKB'][$i]['total']        = round(
+        $pkb + $opsen + $dendaPKB + $dendaOpsen
+    );
+
+    // akumulasi total pajak
+    $tagihan['total_pajak'] += $tagihan['row']['PKB'][$i]['total'];
+}
+
+
+
+// fugsi untuk mengecek total jarak kapan terakhir bayar PKB
+function jarakWaktu($tgl_bayar) {
+    if (!$tgl_bayar) {
+        return [
+            'hari' => null,
+            'bulan' => null
+        ];
+    }
+
+    $date1 = new DateTime($tgl_bayar);
+    $date2 = new DateTime(date("Y-m-d"));
+    $interval = $date1->diff($date2);
+
+    return [
+        'hari'  => $interval->days,
+        'bulan' => ($interval->y * 12) + $interval->m
+    ];
+}
+
+function mappingPeriodeTahunan($tgl_bayar, $total_bulan) {
+    if (!$tgl_bayar || !$total_bulan || $total_bulan <= 0) {
+        return [];
+    }
+
+    $periode = [];
+    $dateAwal = new DateTime($tgl_bayar);
+    $sisaBulan = $total_bulan;
+    $periodeKe = 1;
+
+    while ($sisaBulan > 0) {
+        $bulanPeriode = min(12, $sisaBulan);
+
+        $start = clone $dateAwal;
+        $end   = clone $dateAwal;
+        $end->modify("+{$bulanPeriode} months");
+
+        $periode[] = [
+            'periode_ke'  => $periodeKe,
+            'dari_tahun'  => (int)$start->format('Y'),
+            'sampai_tahun'=> (int)$end->format('Y'),
+            'total_bulan' => $bulanPeriode,
+            'label'       => $start->format('Y') . '/' . $end->format('Y')
+        ];
+
+        // geser ke periode berikutnya
+        $dateAwal = clone $end;
+        $sisaBulan -= $bulanPeriode;
+        $periodeKe++;
+    }
+
+    return $periode;
+}
+
 function p_mst2trn($vt_mstkb) {
     return [
-        'nm_pemilik'   => $vt_mstkb['nm_pemilik'],
-        'al_pemilik'   => $vt_mstkb['al_pemilik'],
         'nm_merek_kb'  => $vt_mstkb['nm_merek_kb'],
         'nm_model_kb'  => $vt_mstkb['nm_model_kb'],
         'nm_jenis_kb'  => $vt_mstkb['nm_jenis_kb'],
@@ -124,6 +326,7 @@ function p_mst2trn($vt_mstkb) {
         'tg_akhir_pkb' => $vt_mstkb['tg_akhir_pkb'],
     ];
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -177,16 +380,16 @@ function p_mst2trn($vt_mstkb) {
 </head>
 <body class="min-h-screen relative overflow-x-hidden">
     <!-- Background Image with Overlay -->
-    <div class="fixed inset-0 z-0">
+    <!-- <div class="fixed inset-0 z-0">
         <div class="w-full h-full bg-cover bg-center bg-no-repeat" style="background-image: url('https://jambisamsat.net/assets/images/samsatjambi.jpg');"></div>
         <div class="absolute inset-0 bg-gradient-to-br from-blue-900/80 to-indigo-900/80"></div>
-    </div>
+    </div> -->
     <!-- Content Wrapper -->
     <div class="relative z-10 content-wrapper" style="position: relative; z-index: 10;">
         <!-- Header -->
         <header class="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-20">
             <div class="container mx-auto px-2 sm:px-4 py-3 flex items-center justify-between min-h-[64px] gap-2">
-                <a href="/profile/new" class="inline-flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow text-sm sm:text-base flex-shrink-0">
+                <a href="../../coba.php" class="inline-flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow text-sm sm:text-base flex-shrink-0">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                     Menu Utama
                 </a>
@@ -225,6 +428,18 @@ function p_mst2trn($vt_mstkb) {
                             <?php endif; ?>
                         </div>
                     </form>
+                    <?php
+                        if ($found && $result) {
+                            echo '<pre>';
+                            // var_dump($result);
+                            // var_dump($result);
+                            // var_dump($result["tg_bayar"]);
+                            var_dump($tagihan);
+                            echo '</pre>';
+                            die();
+                        }
+                    ?>
+
                     <?php if ($error): ?>
                         <div class="bg-red-100 text-red-700 p-4 rounded mb-4 text-center font-semibold text-sm sm:text-base"><?php echo $error; ?></div>
                     <?php endif; ?>
@@ -236,16 +451,6 @@ function p_mst2trn($vt_mstkb) {
                         <h2 class="text-lg sm:text-xl font-bold mb-4 text-blue-700">DATA KENDARAAN <?php echo htmlspecialchars($no_polisi); ?></h2>
                         <table class="w-full text-base sm:text-lg border-t border-gray-200">
                             <tbody>
-                                <tr>
-                                    <td class="py-2 font-semibold w-36 sm:w-48">NAMA PEMILIK</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2 text-lg sm:text-xl font-bold"><?php echo htmlspecialchars($result['nm_pemilik']); ?></td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">ALAMAT</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['al_pemilik']); ?></td>
-                                </tr>
                                 <tr>
                                     <td class="py-2 font-semibold">MEREK</td>
                                     <td class="py-2">:</td>
@@ -347,8 +552,6 @@ function p_mst2trn($vt_mstkb) {
     console.table(<?php echo json_encode($result); ?>);
     
     console.log('%c\n📝 Detail Data:', 'color: #ea580c; font-weight: bold;');
-    console.log('  Nama Pemilik:', <?php echo json_encode($result['nm_pemilik']); ?>);
-    console.log('  Alamat:', <?php echo json_encode($result['al_pemilik']); ?>);
     console.log('  Merek:', <?php echo json_encode($result['nm_merek_kb']); ?>);
     console.log('  Model/Tipe:', <?php echo json_encode($result['nm_model_kb']); ?>);
     console.log('  Jenis:', <?php echo json_encode($result['nm_jenis_kb']); ?>);

