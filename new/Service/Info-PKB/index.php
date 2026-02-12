@@ -27,7 +27,7 @@ $tg_bayar = "1990-01-01";
 
 if ($no_polisi) {
     // 1. Cek data transaksi tahun berjalan
-    $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, kd_mohon, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_lokasi, no_urut_trn, kd_merek_kb FROM t_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
+    $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, kd_mohon, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_lokasi, no_urut_trn, kd_merek_kb, kd_jenis_kb, kd_kel_kb, kd_fungsi FROM t_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
     $row = $dbonl->getrow($query, "d/m/Y");
     if ($row) {
         $result = $row;
@@ -45,7 +45,7 @@ if ($no_polisi) {
     }
     // 2. Cek data master jika belum ditemukan
     if (!$found) {
-        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_merek_kb, '-' FROM t_mstkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where";
+        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_merek_kb, kd_jenis_kb, kd_kel_kb, kd_fungsi, '-' FROM t_mstkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where";
         $row = $dbonl->getrow($query, "d/m/Y");
         if ($row) {
             $result = p_mst2trn($row);
@@ -58,7 +58,7 @@ if ($no_polisi) {
     }
     // 3. Cek data transaksi selesai jika belum ditemukan
     if (!$found) {
-        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, no_urut_trn, kd_mohon FROM tt_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
+        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, no_urut_trn, kd_mohon, kd_jenis_kb, kd_kel_kb, kd_fungsi FROM tt_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
         $row = $dbonl->getrow($query, "d/m/Y");
         if ($row) {
             $result = $row;
@@ -107,7 +107,12 @@ function cekLokasiBayar($kdLokasi) {
     return $nmLokasi ? $nmLokasi : "-";
 }
 
-$njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
+// Hitung nilai jual kendaraan hanya jika data ditemukan
+$njkb = false;
+if ($found && isset($result['kd_merek_kb']) && isset($result['th_rakitan'])) {
+    $njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
+}
+
 if($njkb) {
     $result['nilai_jual_kb'] = "Rp" . number_format($njkb['nilai_jual'], 0, ',', '.') . ",- x " .str_replace(".", ",", $njkb['bobot']);
 } else {
@@ -135,7 +140,7 @@ $jarak = [
 ];
 
 if (isset($result['tg_bayar']) && $result['tg_bayar']) {
-    $jarak = jarakWaktu($result['tg_bayar']);
+    $jarak = jarakWaktuPKB($result['tg_bayar']);
 }
 
 $tagihan['total_hari']  = $jarak['hari'];
@@ -256,13 +261,511 @@ foreach ($tagihan['row']['PKB'] as $i => $row) {
     $tagihan['total_pajak'] += $tagihan['row']['PKB'][$i]['total'];
 }
 
+// =======================
+// HITUNG SWDKLLJ (VALID)
+// =======================
+
+// Hitung SWDKLLJ hanya jika data ditemukan
+if ($found && isset($result['kd_jenis_kb'])) {
+    $tagihan['row']['SWDKLJ'] = hitswd($result);
+} else {
+    $tagihan['row']['SWDKLJ'] = 0;
+}
+
+// Helper functions untuk hitswd()
+function to_date($s) {
+    list($d, $m, $y) = preg_split('/[-\/]/', $s);
+    if(checkdate($m, $d, $y)) return mktime(0, 0, 0, $m, $d, $y);
+    else return false;
+}
+
+function split_date($tgl) {
+    list($d, $m, $y) = preg_split('/[-\/]/', $tgl);
+    if(checkdate($m, $d, $y)) return array($d, $m, $y);
+    else return array(0, 0, 0);
+}
+
+function selisih_tgl($s1, $s2) {
+    $tgl1 = to_date($s1);
+    $tgl2 = to_date($s2);
+    
+    // not a date?
+    if(!$tgl1 || !$tgl2) return array('d' => 0, 'm' => 0, 'y' => 0, 'n' => 0);
+    if($tgl2 < $tgl1) return array('d' => 0, 'm' => 0, 'y' => 0, 'n' => 0);
+    
+    $s1 = to_dbdate($s1);
+    $s2 = to_dbdate($s2);
+    
+    $datetime1 = new DateTime($s1);
+    $datetime2 = new DateTime($s2);
+    
+    $diff = $datetime2->diff($datetime1);
+    
+    return array('d' => $diff->d, 'm' => $diff->m, 'y' => $diff->y, 'n' => $diff->days);
+}
+
+function addyear($s, $n) {
+    list($d, $m, $y) = preg_split('/[-\/]/', $s);
+    if(checkdate($m, $d, $y)) 
+        return date('d/m/Y', mktime(0, 0, 0, $m, $d, $y+$n));
+    else
+        return false;
+}
+
+function hitswd($datakb) {
+    // Validasi field yang diperlukan
+    if (!isset($datakb['kd_jenis_kb']) || !isset($datakb['jumlah_cc'])) {
+        return 0;
+    }
+    
+    // Set default values untuk field opsional
+    if (!isset($datakb['kd_kel_kb'])) $datakb['kd_kel_kb'] = '';
+    if (!isset($datakb['kd_fungsi'])) $datakb['kd_fungsi'] = '';
+    if (!isset($datakb['tg_akhir_jr'])) $datakb['tg_akhir_jr'] = $datakb['tg_akhir_pkb'] ?? date('d/m/Y');
+    if (!isset($datakb['jt_berubah'])) $datakb['jt_berubah'] = false;
+    if (!isset($datakb['byr_dimuka'])) $datakb['byr_dimuka'] = false;
+    if (!isset($datakb['pemutihan'])) $datakb['pemutihan'] = 'N';
+    
+    switch ($datakb['kd_jenis_kb']) {
+        case 'A':
+            $kd_trf_swd = "DP";
+            if ($datakb['kd_kel_kb'] == 'U') {
+                $kd_trf_swd = ($datakb['jumlah_cc'] <= 1600) ? "DU" : "EU";
+            }
+            break;
+
+        case 'B':
+            $kd_trf_swd = "DP";
+            break;
+
+        case 'C':
+            $kd_trf_swd = "DP";
+            if ($datakb['kd_kel_kb'] == 'U') {
+                $kd_trf_swd = ($datakb['jumlah_cc'] <= 1600) ? "DU" : "EU";
+            }
+            break;
+
+        case 'D':
+            if ($datakb['kd_kel_kb'] == "U") $kd_trf_swd = "EU";
+            else
+                $kd_trf_swd = "EP";
+            break;
+
+        case 'E':
+            if ($datakb['kd_kel_kb'] == "U") $kd_trf_swd = "EU";
+            else
+                $kd_trf_swd = "EP";
+            break;
+
+        case 'F':
+            $kd_trf_swd = ($datakb['jumlah_cc'] <= 2400) ? "DP" : "F";
+            break;
+
+        case 'G':
+        case 'H':
+            $kd_trf_swd = "F";
+            break;
+
+        case 'R':
+            $kd_trf_swd = 'C1';
+            if ($datakb['jumlah_cc'] < 50) $kd_trf_swd = 'A';
+            elseif ($datakb['jumlah_cc'] > 250) $kd_trf_swd = 'C2';
+            break;
+    }
+
+    if ($datakb['kd_jenis_kb'] != 'R') {
+        // if (ereg('0[678]', $datakb['kd_fungsi'])) $kd_trf_swd = 'A';
+        if (preg_match('/0[678]/', $datakb['kd_fungsi'])) $kd_trf_swd = 'A';
+    }
+
+    $tg_daftar = date('d/m/Y');
+    tarif_swd($tg_daftar, $kd_trf_swd, 12);
+
+    $tg_daftar   = date('d/m/Y');
+    $tg_akhir_jr = $datakb['tg_akhir_jr'];
+
+    $d_tg_daftar   = to_date($tg_daftar);
+    $d_tg_akhir_jr = to_date($tg_akhir_jr);
+
+    $swd_pok[0] = 0;
+    $swd_den[0] = 0;
+
+    $terlambat = false;
+    if ($d_tg_akhir_jr < $d_tg_daftar) {
+        $terlambat = true;
+    }
+
+    $sel_tgl = selisih_tgl($tg_akhir_jr, $tg_daftar);
+
+    $daluarsa = false;
+
+    // sudah terlambat
+    if ($sel_tgl['n'] > 0) {
+
+        // $d_tgl = mktime(0, 0, 0, 1, 1, $y+$sel_tgl['y']);
+        $d_tg_daluarsa = mktime(0, 0, 0, 1, 1, date('Y') - 4);
+
+        // sudah daluarsa
+        if ($d_tg_akhir_jr < $d_tg_daluarsa) {
+
+            $daluarsa = true;
+
+            list($d, $m, $y) = split_date($tg_akhir_jr);
+            if ($datakb['jt_berubah'])
+                list($d, $m, $y) = split_date($tg_daftar);
+
+            $y = date('Y', $d_tg_daluarsa);
+
+            // hitung tunggakannya
+            $k = -1;
+            for ($i = 4; $i > 0; $i--) {
+                $k++;
+                $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
+                $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
+                $swd_pok[$i] = $trfswd['prorata_12'];
+                $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
+            }
+        } else {
+            // belum daluarsa
+
+            list($d, $m, $y) = split_date($tg_akhir_jr);
+
+            // jatuh tempo berubah
+            if ($datakb['jt_berubah']) {
+                // tunggakannya
+                $k = -1;
+                for ($i = $sel_tgl['y']; $i > 0; $i--) {
+                    $k++;
+                    if ($i < 5) {
+                        $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
+                        $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
+                        $swd_pok[$i] = $trfswd['prorata_12'];
+                        $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
+                    }
+                }
+
+                // prorata s/d tgl. pendaftaran
+                list($d, $m, $y) = split_date($tg_daftar);
+
+                // tarif prorata
+                $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, $m);
+                $s = (strlen(m) == 1) ? "0$m" : $m;
+
+                // proratanya
+                $swd_pok[0] = $trfswd["prorata_$s"];
+                $swd_den[0] = 0;
+            } else {
+                // jatuh tempo tidak berubah
+
+                // kalo bayar dimuka sekaligus, jumlah thn. tgk + 1
+                $n = ($datakb['byr_dimuka']) ? 1 : 0;
+
+                // tunggakannya
+                $k = -1;
+                for ($i = $sel_tgl['y'] + $n; $i > 0; $i--) {
+                    $k++;
+                    if ($i < 5) {
+                        $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
+                        $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
+                        $swd_pok[$i] = $trfswd['prorata_12'];
+                        $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
+                    }
+                }
+            }
+            // belum daluarsa
+        }
+
+        list($d, $m, $y) = split_date($tg_akhir_jr);
+        $tg_pre_jr = date('d/m/Y', mktime(
+            0,
+            0,
+            0,
+            $m,
+            $d,
+            $y + $sel_tgl['y']
+        ));
+        if ($datakb['jt_berubah']) {
+            // dihitung dari tgl. pendaftaran
+            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
+        } else {
+
+            if ($datakb['byr_dimuka']) {
+                $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
+                $tg_pre_jr = date('d/m/Y', mktime(
+                    0,
+                    0,
+                    0,
+                    $m,
+                    $d,
+                    $y + $sel_tgl['y'] + 1
+                ));
+            } else {
+                $trfswd = tarif_swd($tg_pre_jr, $kd_trf_swd, 12);
+            }
+        }
+        // pokok tahun berjalan (nilainya ditambah dengan proratanya)
+        $swd_pok[0] += $trfswd['prorata_12'];
+
+        // denda tahun berjalan
+        // $swd_den[0] = $trfswd['prorata_12'] - $trfswd['krt_swd'];
+        $swd_den[0] = hit_den_swd(
+            $tg_daftar,
+            $tg_pre_jr,
+            $trfswd['prorata_12'] - $trfswd['krt_swd']
+        );
+
+        if ($datakb['byr_dimuka']) $swd_den[0] = 0;
+    } else {
+        // belum terlambat
+
+        // kalo jatuh temponya berubah?
+        if ($datakb['jt_berubah']) {
+            // set tgl. jt jr yad.
+            list($d, $m, $y) = split_date($tg_daftar);
+            $tg_akhir_jr_yad = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + 1));
+
+            // hitung selisihnya dgn. tgl. akhir jr yl.
+            $sel_tgl = selisih_tgl($tg_akhir_jr, $tg_akhir_jr_yad);
+
+            // jumlah bulan pengenaan prorata
+            $m = $sel_tgl['m'];
+            if ($sel_tgl['d'] > 0) $m++;
+
+            // tarif swdkllj
+            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, $m);
+            $s = (strlen($m) == 1) ? "0$m" : $m;
+
+            // swdkllj yang harus dibayar!
+            $swd_pok[0] = $trfswd["prorata_$s"];
+            $swd_den[0] = 0;
+        } else {
+            // jatuh tempo tidak berubah!
+
+            // tarif swdkllj
+            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
+
+            // swdkllj yang harus dibayar!
+            $swd_pok[0] = $trfswd['prorata_12'];
+            $swd_den[0] = 0;
+        }
+    }
+
+    // kalo ada pemutihan
+    if ($datakb['pemutihan'] == "Y") {
+
+        // sebelum pemutihan
+        $pok = 0;
+        foreach ($swd_pok as &$value) {
+            // $value = pembulatan($value);
+            $pok += $value;
+        }
+
+        $den = 0;
+        foreach ($swd_den as &$value) {
+            // $value = pembulatan($value);
+            if ($value > 100000) $value = 100000;
+            $den += $value;
+        }
+
+        $tot = $pok + $den;
+
+        $datakb['pok_swd_awal'] = $pok;
+        $datakb['den_swd_awal'] = $den;
+        $datakb['tot_swd_awal'] = $tot;
+
+        $set_pp = $datakb['set_pp'];
+
+        // pemutihan pokok swdkllj
+        switch ($set_pp['pokok_swdkllj']) {
+            case "0":
+                $swd_pok[0] = 0;
+                $swd_pok[1] = 0;
+                $swd_pok[2] = 0;
+                $swd_pok[3] = 0;
+                $swd_pok[4] = 0;
+                break;
+
+            case "1":
+                $swd_pok[1] = 0;
+                $swd_pok[2] = 0;
+                $swd_pok[3] = 0;
+                $swd_pok[4] = 0;
+                break;
+
+            case "2":
+                $swd_pok[2] = 0;
+                $swd_pok[3] = 0;
+                $swd_pok[4] = 0;
+                break;
+
+            case "3":
+                $swd_pok[3] = 0;
+                $swd_pok[4] = 0;
+                break;
+
+            case "4":
+                $swd_pok[4] = 0;
+                break;
+        }
+
+        // pemutihan denda swdkllj
+        switch ($set_pp['denda_swdkllj']) {
+            case "0":
+                $swd_den[0] = 0;
+                $swd_den[1] = 0;
+                $swd_den[2] = 0;
+                $swd_den[3] = 0;
+                $swd_den[4] = 0;
+                $swd_den[5] = 0;
+                break;
+
+            case "1":
+                $swd_den[1] = 0;
+                $swd_den[2] = 0;
+                $swd_den[3] = 0;
+                $swd_den[4] = 0;
+                break;
+
+            case "2":
+                $swd_den[2] = 0;
+                $swd_den[3] = 0;
+                $swd_den[4] = 0;
+                break;
+
+            case "3":
+                $swd_den[3] = 0;
+                $swd_den[4] = 0;
+                break;
+
+            case "4":
+                $swd_den[4] = 0;
+                break;
+        }
+    }
+
+    $datakb['swd_pok'] = $swd_pok;
+    $datakb['swd_den'] = $swd_den;
+
+    // Build associative per-period rows for SWDKLLJ (easier JSON consumption)
+    $swd_rows = array();
+    for ($i = 0; $i <= 4; $i++) {
+        $pok = isset($swd_pok[$i]) ? (float) $swd_pok[$i] : 0.0;
+        $den = isset($swd_den[$i]) ? (float) $swd_den[$i] : 0.0;
+        $periode = "";
+        if (!empty($datakb['tg_akhir_jr']) && $pok != 0) {
+            $startPayment = addyear($datakb['tg_akhir_jr'], + 1);
+            $pd = addyear($startPayment, +$i);
+            if ($pd) $periode = $pd;
+        }
+        $swd_rows[] = array(
+            'pok' => $pok,
+            'den' => $den,
+            'tot' => $pok + $den,
+            'periode' => $periode
+        );
+    }
+    $datakb['swd_rows'] = $swd_rows;
+
+    $pok = 0;
+    foreach ($swd_pok as &$value) {
+        // $value = pembulatan($value);
+        $pok += $value;
+    }
+
+    $den = 0;
+    foreach ($swd_den as &$value) {
+        // $value = pembulatan($value);
+        if ($value > 100000) $value = 100000;
+        $den += $value;
+    }
+    $tot = $pok + $den;
+
+    $datakb['pok_swd_akhir'] = $pok;
+    $datakb['den_swd_akhir'] = $den;
+    $datakb['tot_swd_akhir'] = $tot;
+
+    if ($datakb['pemutihan'] == 'Y') {
+        $datakb['jml_pp_swd'] = $datakb['tot_swd_awal'] -
+            $datakb['tot_swd_akhir'];
+    }
+
+    $datakb['pokok_swd'] = number_format($pok, 0, ",", ".");
+    $datakb['denda_swd'] = number_format($den, 0, ",", ".");
+    $datakb['total_swd'] = number_format($tot, 0, ",", ".");
+
+    if ($datakb['jt_berubah']) {
+        list($d, $m, $y) = split_date($tg_daftar);
+        $datakb['tg_akhir_jr_yad'] = date('d/m/Y', mktime(0, 0, 0, $d, $m, $y + 1));
+    } else {
+        $n = ($datakb['byr_dimuka']) ? 2 : 1;
+        list($d, $m, $y) = split_date($tg_akhir_jr);
+        $datakb['tg_akhir_jr_yad'] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $sel_tgl['y'] + $n));
+    }
+
+    return $tot;
+}
+
+function tarif_swd($tgl, $kd_trf_swd, $bln)
+{
+    global $dbonl;
+
+    $tgl = to_dbdate($tgl);
+
+    if (strlen($bln) == 1) $bln = "0$bln";
+    $data = "prorata_" . $bln;
+    $sql = "SELECT $data, krt_swd FROM t_trf_swd
+                WHERE tg_dari <= '$tgl' AND tg_sampai >= '$tgl'
+                  AND kd_trf_swd = '$kd_trf_swd'";
+
+    $row = $dbonl->getrow($sql);
+    if ($row[$data] == $row['krt_swd']) $row['krt_swd'] = 0;
+    return $row;
+
+    if (strlen($bln) == 1) $bln = "0$bln";
+    $data = "prorata_" . $bln;
+
+    $query = "SELECT $data, krt_swd FROM t_trf_swd
+                 WHERE tg_dari <= '$tgl' AND tg_sampai >= '$tgl'
+                   AND kd_trf_swd = '$kd_trf_swd'";
+    $row = $dbonl->getrow($query);
+    if ($row[$data] == $row['krt_swd']) $row['krt_swd'] = 0;
+}
+
+function hit_den_swd($tg_tetap, $tg_akhir, $trf_swd)
+{
+
+    $d_tg_tetap = to_date($tg_tetap);
+    $d_tg_akhir = to_date($tg_akhir);
+
+    $sel_tgl = selisih_tgl($tg_akhir, $tg_tetap);
+    $n = $sel_tgl['n'];
+
+    $pct = 0;
+
+    if ($n > 270) {
+        $pct = 100;
+    } elseif ($n > 180) {
+        $pct = 75;
+    } elseif ($n >  90) {
+        $pct = 50;
+    } else {
+        if ($n > 0) $pct = 25;
+    }
+
+    $denda = ($pct / 100) * $trf_swd;
+    if ($denda > 100000) $denda = 100000;
+
+    return $denda;
+}
+
+
 
 
 // fugsi untuk mengecek total jarak kapan terakhir bayar PKB
-function jarakWaktu($tgl_bayar) {
+function jarakWaktuPKB($tgl_bayar) {
     if (!$tgl_bayar) {
         return [
-            'hari' => null,
+            'hari'  => null,
             'bulan' => null
         ];
     }
@@ -271,9 +774,37 @@ function jarakWaktu($tgl_bayar) {
     $date2 = new DateTime(date("Y-m-d"));
     $interval = $date1->diff($date2);
 
+    $bulan = ($interval->y * 12) + $interval->m;
+
+    if ($interval->d > 0) {
+        $bulan++;
+    }
+
     return [
         'hari'  => $interval->days,
-        'bulan' => ($interval->y * 12) + $interval->m
+        'bulan' => $bulan
+    ];
+}
+
+function jarakWaktuSWDKLLJ($tgl_awal, $tgl_akhir = null) {
+    if (!$tgl_awal) {
+        return [
+            'hari'  => 0,
+            'bulan' => 0
+        ];
+    }
+
+    if (!$tgl_akhir) {
+        $tgl_akhir = date('Y-m-d');
+    }
+
+    $d1 = new DateTime($tgl_awal);
+    $d2 = new DateTime($tgl_akhir);
+    $i  = $d1->diff($d2);
+
+    return [
+        'hari'  => $i->days,
+        'bulan' => ($i->y * 12) + $i->m // FLOOR
     ];
 }
 
@@ -324,6 +855,9 @@ function p_mst2trn($vt_mstkb) {
         'no_chasis'    => $vt_mstkb['no_chasis'],
         'no_mesin'     => $vt_mstkb['no_mesin'],
         'tg_akhir_pkb' => $vt_mstkb['tg_akhir_pkb'],
+        'kd_jenis_kb'  => $vt_mstkb['kd_jenis_kb'] ?? null,
+        'kd_kel_kb'    => $vt_mstkb['kd_kel_kb'] ?? null,
+        'kd_fungsi'    => $vt_mstkb['kd_fungsi'] ?? null,
     ];
 }
 
@@ -428,17 +962,17 @@ function p_mst2trn($vt_mstkb) {
                             <?php endif; ?>
                         </div>
                     </form>
-                    <?php
-                        if ($found && $result) {
-                            echo '<pre>';
-                            // var_dump($result);
-                            // var_dump($result);
-                            // var_dump($result["tg_bayar"]);
-                            var_dump($tagihan);
-                            echo '</pre>';
-                            die();
-                        }
-                    ?>
+                    <!-- <?php
+                        // if ($found && $result) {
+                        //     echo '<pre>';
+                        //     // var_dump($result);
+                        //     // var_dump($result);
+                        //     // var_dump($result["tg_bayar"]);
+                        //     var_dump($tagihan);
+                        //     echo '</pre>';
+                        //     die();
+                        // }
+                    ?> -->
 
                     <?php if ($error): ?>
                         <div class="bg-red-100 text-red-700 p-4 rounded mb-4 text-center font-semibold text-sm sm:text-base"><?php echo $error; ?></div>
@@ -530,6 +1064,8 @@ function p_mst2trn($vt_mstkb) {
 <script>
     // Console log untuk debugging semua data yang diambil
     <?php if ($no_polisi): ?>
+    console.log('  Result:', <?php echo json_encode($result); ?>);
+    console.log('  Tagihan:', <?php echo json_encode($tagihan); ?>);
     console.log('%c=== DATA QUERY DEBUG ===', 'color: #2563eb; font-weight: bold; font-size: 16px;');
     
     console.log('%c📋 Parameter Input:', 'color: #059669; font-weight: bold;');
