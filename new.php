@@ -153,22 +153,26 @@
                 <!-- Total PKB & Opsen -->
                 <div class="border-t pt-4 mb-4">
                     <p class="text-xs font-semibold text-gray-700 mb-3">TOTAL TAGIHAN</p>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">PKB Pokok</span>
-                            <span id="pkbPokok" class="font-semibold"></span>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <!-- PKB Pokok -->
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                            <p class="text-gray-600 text-xs mb-1">PKB Pokok</p>
+                            <p id="pkbPokok" class="font-bold text-blue-700 text-lg"></p>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Denda PKB</span>
-                            <span id="pkbDenda" class="font-semibold text-red-600"></span>
+                        <!-- Denda PKB -->
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda PKB</p>
+                            <p id="pkbDenda" class="font-bold text-red-700 text-lg"></p>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Opsen Pokok</span>
-                            <span id="opsenPokok" class="font-semibold"></span>
+                        <!-- Opsen Pokok -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-3 border border-indigo-200">
+                            <p class="text-gray-600 text-xs mb-1">Opsen Pokok</p>
+                            <p id="opsenPokok" class="font-bold text-indigo-700 text-lg"></p>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Denda Opsen</span>
-                            <span id="opsenDenda" class="font-semibold text-red-600"></span>
+                        <!-- Denda Opsen -->
+                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda Opsen</p>
+                            <p id="opsenDenda" class="font-bold text-orange-700 text-lg"></p>
                         </div>
                     </div>
                 </div>
@@ -242,18 +246,17 @@
 
                 <!-- Rincian Tarif -->
                 <div class="text-sm">
-                    <div class="space-y-2 mb-4">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Kartu JR</span>
-                            <span id="jrKartu" class="font-semibold"></span>
+                    <p class="text-xs font-semibold text-gray-700 mb-3">RINCIAN BIAYA</p>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <!-- Pokok JR -->
+                        <div class="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 border border-teal-200">
+                            <p class="text-gray-600 text-xs mb-1">Pokok JR</p>
+                            <p id="jrPokok" class="font-bold text-teal-700 text-lg"></p>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Pokok JR</span>
-                            <span id="jrPokok" class="font-semibold"></span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Denda JR</span>
-                            <span id="jrDenda" class="font-semibold text-red-600"></span>
+                        <!-- Denda JR -->
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda JR</p>
+                            <p id="jrDenda" class="font-bold text-red-700 text-lg"></p>
                         </div>
                     </div>
 
@@ -265,7 +268,6 @@
                                 <thead>
                                     <tr class="bg-gray-100 text-left">
                                         <th class="p-2 font-semibold text-gray-700">Periode</th>
-                                        <th class="p-2 font-semibold text-gray-700 text-right">Kartu JR</th>
                                         <th class="p-2 font-semibold text-gray-700 text-right">Pokok JR</th>
                                         <th class="p-2 font-semibold text-gray-700 text-right">Denda JR</th>
                                         <th class="p-2 font-semibold text-gray-700 text-right">Subtotal</th>
@@ -469,7 +471,7 @@
     <!-- script detail kendaraan -->
     <script>
         // API Token
-        const API_TOKEN = 'TEIZGX3o716BvLPs';
+        const API_TOKEN = 'd84e44fc2e1cb516f2d58580fcfc00a453402f0a13219ef82481d0ebad2944c8';
         
         // Variable untuk menyimpan nopol saat ini
         let currentNopol = '';
@@ -488,7 +490,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const response = await fetch(`http://localhost:3000/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
+                const response = await fetch(`http://192.168.0.2:3333/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -670,7 +672,7 @@
 
             // Fetch PNBP
             try {
-                const pnbpRes = await fetch(`http://localhost:3000/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pnbpRes = await fetch(`http://192.168.0.2:3333/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -703,7 +705,7 @@
 
             // Fetch Pajak
             try {
-                const pajakRes = await fetch(`http://localhost:3000/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pajakRes = await fetch(`http://192.168.0.2:3333/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -733,7 +735,7 @@
 
             // Fetch Jasa Raharja
             try {
-                const jrRes = await fetch(`http://localhost:3000/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const jrRes = await fetch(`http://192.168.0.2:3333/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -824,8 +826,7 @@
             // Total tarif
             const total = data.total_tarif.total;
             document.getElementById('jrTotal').textContent = formatRupiah(total);
-            document.getElementById('jrKartu').textContent = formatRupiah(data.total_tarif.kartu_jr);
-            document.getElementById('jrPokok').textContent = formatRupiah(data.total_tarif.pokok_jr);
+            document.getElementById('jrPokok').textContent = formatRupiah(data.total_tarif.pokok_jr + data.total_tarif.kartu_jr);
             document.getElementById('jrDenda').textContent = formatRupiah(data.total_tarif.denda_jr);
 
             // Tarif per tahun dalam table
@@ -837,8 +838,7 @@
                 tr.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 tr.innerHTML = `
                     <td class="p-2 font-medium text-gray-900">${item.keterangan}</td>
-                    <td class="p-2 text-right text-gray-900">${formatRupiah(item.kartu_jr)}</td>
-                    <td class="p-2 text-right text-gray-900">${formatRupiah(item.pokok_jr)}</td>
+                    <td class="p-2 text-right text-gray-900">${formatRupiah(item.kartu_jr + item.pokok_jr)}</td>
                     <td class="p-2 text-right text-red-600">${formatRupiah(item.denda_jr)}</td>
                     <td class="p-2 text-right font-semibold text-gray-900">${formatRupiah(item.subtotal)}</td>
                 `;
