@@ -10,6 +10,41 @@
     <div class="max-w-3xl mx-auto">
         <!-- Header & Form -->
         <div class="bg-white rounded-lg shadow p-6 mb-4">
+
+            <div class="w-full flex justify-between mb-4">
+                <button 
+                    onclick="goBack()" 
+                    class="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-4 transition"
+                    title="Kembali ke halaman sebelumnya"
+                >
+                    <svg 
+                        width="20" 
+                        height="20"
+                        fill="currentColor" 
+                        version="1.1" 
+                        id="Capa_1" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:xlink="http://www.w3.org/1999/xlink" 
+                        viewBox="0 0 956.199 956.199" 
+                        xml:space="preserve">
+                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                        <g id="SVGRepo_iconCarrier"> 
+                            <g> 
+                                <path d="M859.649,385.6h-255.2L680.05,310c35.1-35.1,35.1-92.1,0-127.3c-35.101-35.1-92.101-35.1-127.3,0L323.449,412 c-21.6,22.6-32.199,55.3-23.6,85.9c2.3,8.299,5.8,17.5,10.5,24.799c3.9,6,8.4,11.201,13.1,16.602l234.2,234.199 c17.601,17.6,40.601,26.4,63.601,26.4s46.1-8.801,63.6-26.4c35.1-35.1,35.1-92.1,0-127.301l-80.6-80.6h255.1 c49.7,0,90-40.299,90-90C949.35,425.9,909.35,385.6,859.649,385.6z"></path> 
+                                <path d="M96.85,0c-49.7,0-90,40.3-90,90v776.199c0,49.701,40.3,90,90,90s90-40.299,90-90V90C186.85,40.3,146.55,0,96.85,0z"></path> 
+                            </g> 
+                        </g>
+                    </svg>    
+                    <span class="text-sm font-medium">Kembali</span>
+                </button>
+                <a 
+                    href="infopkb.html"
+                    class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                >
+                    Perhitungan lama
+                </a>
+            </div>
             <h1 class="text-2xl font-bold text-gray-800 mb-4">Cek Detail Kendaraan</h1>
             <div class="flex gap-2">
                 <input 
@@ -213,9 +248,24 @@
                 <h3 class="text-lg font-bold text-gray-800 mb-4">PNBP (Penerimaan Negara Bukan Pajak)</h3>
                 <div class="text-sm">
                     <div id="pnbpContent">
-                        <div class="bg-blue-50 rounded p-3">
-                            <p class="text-xs text-gray-600 mb-1">NJKB</p>
-                            <p id="pnbpNJKB" class="font-semibold text-gray-900"></p>
+                        <!-- Total PNBP -->
+                        <div class="bg-blue-50 rounded p-4 mb-4">
+                            <p class="text-xs text-gray-600 mb-1">Total PNBP</p>
+                            <p id="pnbpTotal" class="text-2xl font-bold text-blue-600"></p>
+                        </div>
+                        
+                        <!-- Rincian PNBP -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- STNK -->
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
+                                <p class="text-gray-600 text-xs mb-1">STNK</p>
+                                <p id="pnbpSTNK" class="font-bold text-green-700 text-lg"></p>
+                            </div>
+                            <!-- TNKB -->
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
+                                <p class="text-gray-600 text-xs mb-1">TNKB</p>
+                                <p id="pnbpTNKB" class="font-bold text-purple-700 text-lg"></p>
+                            </div>
                         </div>
                     </div>
                     <div id="pnbpEmpty" class="hidden">
@@ -476,6 +526,11 @@
         // Variable untuk menyimpan nopol saat ini
         let currentNopol = '';
 
+        // Fungsi untuk kembali ke halaman sebelumnya
+        function goBack() {
+            window.history.back();
+        }
+
         async function cekKendaraan() {
             const nopol = document.getElementById('nopolInput').value.trim();
             
@@ -684,20 +739,18 @@
                 document.getElementById('contentPNBP').classList.remove('hidden');
 
                 if (pnbpData.status && pnbpData.data) {
-                    displayPNBP(pnbpData.data);
+                    totalPNBP = displayPNBP(pnbpData.data);
                     successCount++;
                     showToast('PNBP Berhasil', 'Data PNBP berhasil dimuat', 'success');
-                    // PNBP biasanya gratis atau sudah termasuk, set 0
-                    totalPNBP = 'Rp 0';
                 } else {
-                    displayPNBP(null); // Tetap tampilkan card PNBP meskipun tidak ada data
+                    totalPNBP = displayPNBP(null);
                     errorMessages.push('PNBP: ' + (pnbpData.message || 'Data tidak ditemukan'));
                     showToast('PNBP Gagal', pnbpData.message || 'Data PNBP tidak ditemukan', 'error');
                 }
             } catch (error) {
                 document.getElementById('loadingPNBP').classList.add('hidden');
                 document.getElementById('contentPNBP').classList.remove('hidden');
-                displayPNBP(null); // Tetap tampilkan card PNBP meskipun error
+                totalPNBP = displayPNBP(null);
                 errorMessages.push('PNBP: Gagal terhubung ke server');
                 showToast('PNBP Error', 'Gagal mengambil data PNBP', 'error');
                 console.error('Error PNBP:', error);
@@ -812,13 +865,26 @@
         }
 
         function displayPNBP(data) {
-            if (data && data.njkb && data.njkb.nilai_jual) {
-                document.getElementById('pnbpNJKB').textContent = data.njkb.nilai_jual;
+            if (data && data.pnbp) {
+                // Display total
+                document.getElementById('pnbpTotal').textContent = data.pnbp.total || 'Rp 0';
+                
+                // Display STNK
+                document.getElementById('pnbpSTNK').textContent = 
+                    data.pnbp.stnk?.status ? (data.pnbp.stnk.nominal || 'Rp 0') : 'Rp 0';
+                
+                // Display TNKB
+                document.getElementById('pnbpTNKB').textContent = 
+                    data.pnbp.tnkb?.status ? (data.pnbp.tnkb.nominal || 'Rp 0') : 'Rp 0';
+                
                 document.getElementById('pnbpContent').classList.remove('hidden');
                 document.getElementById('pnbpEmpty').classList.add('hidden');
+                
+                return data.pnbp.total || 'Rp 0';
             } else {
                 document.getElementById('pnbpContent').classList.add('hidden');
                 document.getElementById('pnbpEmpty').classList.remove('hidden');
+                return 'Rp 0';
             }
         }
 

@@ -1,1123 +1,946 @@
-<?php
-include_once "../../../pgdbtool.php";
-include_once "../../../samlib.php";
-
-$error = '';
-$result = []; // Inisialisasi sebagai array
-
-$found = false;
-
-if (isset($dbonl) && !$dbonl->connected) {
-    $error = "Database not connected!";
-}
-
-// Inisialisasi nilai default untuk result
-$result['nm_lokasi']  = "-";
-$result['date_now'] = date("d/m/Y");
-
-$no_polisi = isset($_POST['no_polisi']) ? setnopol($_POST['no_polisi']) : '';
-$nm_pemilik = isset($_POST['nm_pemilik']) ? strtoupper(trim($_POST['nm_pemilik'])) : '';
-$noka = isset($_POST['noka']) ? (int)$_POST['noka'] : 0;
-$nosin = isset($_POST['nosin']) ? (int)$_POST['nosin'] : 0;
-$row = null;
-$table = '';
-
-$where = $nm_pemilik ? "AND nm_pemilik LIKE '%$nm_pemilik%'" : '';
-$tg_bayar = "1990-01-01";
-
-if ($no_polisi) {
-    // 1. Cek data transaksi tahun berjalan
-    $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, kd_mohon, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_lokasi, no_urut_trn, kd_merek_kb, kd_jenis_kb, kd_kel_kb, kd_fungsi FROM t_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
-    $row = $dbonl->getrow($query, "d/m/Y");
-    if ($row) {
-        $result = $row;
-        $result['date_now'] = date("d/m/Y"); // Tambahkan date_now
-        $tg_bayar = to_dbdate($row['tg_bayar']);
-        $found = 1;
-        $table = 't_trnkb';
-        $result['nm_lokasi'] = cekLokasiBayar($result['kd_lokasi']);
-        $njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
-        if($njkb) {
-            $result['nilai_jual_kb'] = "Rp" . number_format($njkb['nilai_jual'], 0, ',', '.') . ",- x " .str_replace(".", ",", $njkb['bobot']);
-        } else {
-            $result['nilai_jual_kb'] = "-";
-        }
-    }
-    // 2. Cek data master jika belum ditemukan
-    if (!$found) {
-        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, kd_merek_kb, kd_jenis_kb, kd_kel_kb, kd_fungsi, '-' FROM t_mstkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where";
-        $row = $dbonl->getrow($query, "d/m/Y");
-        if ($row) {
-            $result = p_mst2trn($row);
-            $result['date_now'] = date("d/m/Y"); // Tambahkan date_now
-            $tg_bayar = to_dbdate($row['tg_bayar']);
-            $found = 2;
-            $table = 't_mstkb';
-            $result['nm_lokasi'] = cekLokasiBayar($result['kd_lokasi']);
-        }
-    }
-    // 3. Cek data transaksi selesai jika belum ditemukan
-    if (!$found) {
-        $query = "SELECT nm_merek_kb, nm_model_kb, nm_jenis_kb, th_rakitan, jumlah_cc, warna_kb, kd_plat, kd_bbm, no_chasis, no_mesin, tg_akhir_pkb, tg_bayar, no_urut_trn, kd_mohon, kd_jenis_kb, kd_kel_kb, kd_fungsi FROM tt_trnkb WHERE no_polisi = '$no_polisi' AND tg_bayar > '$tg_bayar' $where ORDER BY tg_bayar DESC, no_urut_trn DESC";
-        $row = $dbonl->getrow($query, "d/m/Y");
-        if ($row) {
-            $result = $row;
-            $result['date_now'] = date("d/m/Y"); // Tambahkan date_now
-            $found = 3;
-            $table = 'tt_trnkb';
-            $result['nm_lokasi'] = cekLokasiBayar($result['kd_lokasi']);
-        }
-    }
-    // 4. Validasi kd_mohon
-    if ($found && isset($result['kd_mohon'])) {
-        $kd_mohon = $result['kd_mohon'];
-        if (preg_match('/[36X]X/', $kd_mohon) || preg_match('/3[34]/', $kd_mohon)) {
-            $found = false;
-        }
-    }
-    // 5. Update tg_akhir_pkb jika ada data swdkllj
-    if ($found) {
-        $s = to_dbdate($result['tg_akhir_pkb']);
-        $query = "SELECT tg_akhir_jr FROM t_datapnrjr WHERE no_polisi = '$no_polisi' AND tg_akhir_jr > '$s' ORDER BY tg_akhir_jr DESC";
-        $s = $dbonl->getvalue($query, "d/m/Y");
-        if ($s) $result['tg_akhir_pkb'] = $s;
-    }
-}
-
-function nilaiJualKendaraan($kdMerekKb, $thnRakitan) {
-    global $dbonl;
-    $sql = "SELECT * FROM t_trf_nj
-                WHERE kd_merek_kb = '$kdMerekKb'
-                  AND thn = $thnRakitan";
-    $response = $dbonl->getrow($sql);
-    if (!$response) {
-        // $response = null;
-        set_error("MOHON MAAF, TARIF NILAI JUAL KENDARAAN ANDA BELUM TERDATA!", -4);
-        return false;
-    }
-
-    return $response;
-}
-
-function cekLokasiBayar($kdLokasi) {
-    global $dbonl;
-    $nmLokasi = $dbonl->getvalue("SELECT nm_lokasi 
-                            FROM t_nm_lokasi
-                        WHERE kd_lokasi = '$kdLokasi'");
-    return $nmLokasi ? $nmLokasi : "-";
-}
-
-// Hitung nilai jual kendaraan hanya jika data ditemukan
-$njkb = false;
-if ($found && isset($result['kd_merek_kb']) && isset($result['th_rakitan'])) {
-    $njkb = nilaiJualKendaraan($result['kd_merek_kb'], $result['th_rakitan']);
-}
-
-if($njkb) {
-    $result['nilai_jual_kb'] = "Rp" . number_format($njkb['nilai_jual'], 0, ',', '.') . ",- x " .str_replace(".", ",", $njkb['bobot']);
-} else {
-    $result['nilai_jual_kb'] = "-";
-}
-
-// Bentuk dasar tagihan
-$tagihan = [
-    'terakhir_bayar' => $result['tg_bayar'] ?? null,
-    'njkb'           => $njkb ? $njkb['nilai_jual'] : 0,
-    'bobot'          => $njkb ? $njkb['bobot'] : 0,
-    'total_pajak'    => 0,
-    'total_SWDKLJ'   => 0,
-    'total_bulan'    => 0,
-    'total_hari'     => 0,
-    'row' => [
-        'PKB'    => [],
-        'SWDKLJ' => []
-    ]
-];
-
-$jarak = [
-    'hari'  => null,
-    'bulan' => null
-];
-
-if (isset($result['tg_bayar']) && $result['tg_bayar']) {
-    $jarak = jarakWaktuPKB($result['tg_bayar']);
-}
-
-$tagihan['total_hari']  = $jarak['hari'];
-$tagihan['total_bulan'] = $jarak['bulan'];
-
-$periodeTagihan = [];
-
-if ($tagihan['total_bulan'] > 0 && $tagihan['terakhir_bayar']) {
-    $periodeTagihan = mappingPeriodeTahunan(
-        $tagihan['terakhir_bayar'],
-        $tagihan['total_bulan']
-    );
-}
-
-$cutoffOpsen = new DateTime('2025-01-06');
-
-// Buat struktur tagihan berdasarkan periode yang didapat
-foreach ($periodeTagihan as $p) {
-
-    // tentukan akhir periode
-    $akhirPeriode = new DateTime($p['sampai_tahun'] . '-01-01');
-
-    // opsen berlaku jika sebelum cutoff
-    $isOpsen = $akhirPeriode > $cutoffOpsen;
-
-    // PKB
-    $tagihan['row']['PKB'][] = [
-        'is_opsen'        => $isOpsen,
-        'periode_ke'   => $p['periode_ke'],
-        'periode'      => $p['label'],
-        'dari_tahun'   => $p['dari_tahun'],
-        'sampai_tahun' => $p['sampai_tahun'],
-        'total_bulan'  => $p['total_bulan'],
-        'pokok'        => 0,
-        'denda'        => 0,
-        'opsen'        => 0,
-        'denda_opsen'  => 0,
-        'total'        => 0
-    ];
-
-    // SWDKLJ
-    $tagihan['row']['SWDKLJ'][] = [
-        'periode_ke'   => $p['periode_ke'],
-        'periode'      => $p['label'],
-        'dari_tahun'   => $p['dari_tahun'],
-        'sampai_tahun' => $p['sampai_tahun'],
-        'total_bulan'  => $p['total_bulan'],
-        'pokok'        => 0,
-        'denda'        => 0,
-        'total'        => 0
-    ];
-}
-
-define('TARIF_NON_OPSEN', 0.015);
-define('TARIF_OPSEN',     0.01);
-
-define('PENGENAAN_NON_OPSEN', 1);
-define('PENGENAAN_OPSEN',     0.904);
-
-define('OPSEN_RATE', 0.66);
-define('DENDA_RATE_PER_BULAN', 0.02);
-define('DENDA_BASE_NON_OPSEN', 0.02);
-define('DENDA_BASE_OPSEN',     0.01);
-define('DENDA_MAX_BULAN',      24); // kalau mau dibatasi
-
-foreach ($tagihan['row']['PKB'] as $i => $row) {
-
-    // =======================
-    // PKB & OPSEN (SUDAH ADA)
-    // =======================
-    if ($row['is_opsen']) {
-        $tarif     = TARIF_OPSEN;
-        $pengenaan = PENGENAAN_OPSEN;
-    } else {
-        $tarif     = TARIF_NON_OPSEN;
-        $pengenaan = PENGENAAN_NON_OPSEN;
-    }
-
-    $pkb = $tarif
-         * $tagihan['njkb']
-         * $tagihan['bobot']
-         * $pengenaan;
-
-    $opsen = $row['is_opsen']
-        ? $pkb * OPSEN_RATE
-        : 0;
-
-    // =======================
-    // DENDA
-    // =======================
-    $bulanTelat = min($row['total_bulan'], DENDA_MAX_BULAN);
-
-    if ($row['is_opsen']) {
-        $baseDenda = DENDA_BASE_OPSEN;
-    } else {
-        $baseDenda = DENDA_BASE_NON_OPSEN;
-    }
-
-    $faktorDenda = $baseDenda + ($bulanTelat * DENDA_RATE_PER_BULAN);
-
-    $dendaPKB   = $pkb * $faktorDenda;
-    $dendaOpsen = $row['is_opsen']
-        ? $opsen * $faktorDenda
-        : 0;
-
-    // =======================
-    // ASSIGN
-    // =======================
-    $tagihan['row']['PKB'][$i]['pokok']       = round($pkb);
-    $tagihan['row']['PKB'][$i]['opsen']        = round($opsen);
-    $tagihan['row']['PKB'][$i]['denda']        = round($dendaPKB);
-    $tagihan['row']['PKB'][$i]['denda_opsen']  = round($dendaOpsen);
-    $tagihan['row']['PKB'][$i]['total']        = round(
-        $pkb + $opsen + $dendaPKB + $dendaOpsen
-    );
-
-    // akumulasi total pajak
-    $tagihan['total_pajak'] += $tagihan['row']['PKB'][$i]['total'];
-}
-
-// =======================
-// HITUNG SWDKLLJ (VALID)
-// =======================
-
-// Hitung SWDKLLJ hanya jika data ditemukan
-if ($found && isset($result['kd_jenis_kb'])) {
-    $tagihan['row']['SWDKLJ'] = hitswd($result);
-} else {
-    $tagihan['row']['SWDKLJ'] = 0;
-}
-
-// Helper functions untuk hitswd()
-function to_date($s) {
-    list($d, $m, $y) = preg_split('/[-\/]/', $s);
-    if(checkdate($m, $d, $y)) return mktime(0, 0, 0, $m, $d, $y);
-    else return false;
-}
-
-function split_date($tgl) {
-    list($d, $m, $y) = preg_split('/[-\/]/', $tgl);
-    if(checkdate($m, $d, $y)) return array($d, $m, $y);
-    else return array(0, 0, 0);
-}
-
-function selisih_tgl($s1, $s2) {
-    $tgl1 = to_date($s1);
-    $tgl2 = to_date($s2);
-    
-    // not a date?
-    if(!$tgl1 || !$tgl2) return array('d' => 0, 'm' => 0, 'y' => 0, 'n' => 0);
-    if($tgl2 < $tgl1) return array('d' => 0, 'm' => 0, 'y' => 0, 'n' => 0);
-    
-    $s1 = to_dbdate($s1);
-    $s2 = to_dbdate($s2);
-    
-    $datetime1 = new DateTime($s1);
-    $datetime2 = new DateTime($s2);
-    
-    $diff = $datetime2->diff($datetime1);
-    
-    return array('d' => $diff->d, 'm' => $diff->m, 'y' => $diff->y, 'n' => $diff->days);
-}
-
-function addyear($s, $n) {
-    list($d, $m, $y) = preg_split('/[-\/]/', $s);
-    if(checkdate($m, $d, $y)) 
-        return date('d/m/Y', mktime(0, 0, 0, $m, $d, $y+$n));
-    else
-        return false;
-}
-
-function hitswd($datakb) {
-    // Validasi field yang diperlukan
-    if (!isset($datakb['kd_jenis_kb']) || !isset($datakb['jumlah_cc'])) {
-        return 0;
-    }
-    
-    // Set default values untuk field opsional
-    if (!isset($datakb['kd_kel_kb'])) $datakb['kd_kel_kb'] = '';
-    if (!isset($datakb['kd_fungsi'])) $datakb['kd_fungsi'] = '';
-    if (!isset($datakb['tg_akhir_jr'])) $datakb['tg_akhir_jr'] = $datakb['tg_akhir_pkb'] ?? date('d/m/Y');
-    if (!isset($datakb['jt_berubah'])) $datakb['jt_berubah'] = false;
-    if (!isset($datakb['byr_dimuka'])) $datakb['byr_dimuka'] = false;
-    if (!isset($datakb['pemutihan'])) $datakb['pemutihan'] = 'N';
-    
-    switch ($datakb['kd_jenis_kb']) {
-        case 'A':
-            $kd_trf_swd = "DP";
-            if ($datakb['kd_kel_kb'] == 'U') {
-                $kd_trf_swd = ($datakb['jumlah_cc'] <= 1600) ? "DU" : "EU";
-            }
-            break;
-
-        case 'B':
-            $kd_trf_swd = "DP";
-            break;
-
-        case 'C':
-            $kd_trf_swd = "DP";
-            if ($datakb['kd_kel_kb'] == 'U') {
-                $kd_trf_swd = ($datakb['jumlah_cc'] <= 1600) ? "DU" : "EU";
-            }
-            break;
-
-        case 'D':
-            if ($datakb['kd_kel_kb'] == "U") $kd_trf_swd = "EU";
-            else
-                $kd_trf_swd = "EP";
-            break;
-
-        case 'E':
-            if ($datakb['kd_kel_kb'] == "U") $kd_trf_swd = "EU";
-            else
-                $kd_trf_swd = "EP";
-            break;
-
-        case 'F':
-            $kd_trf_swd = ($datakb['jumlah_cc'] <= 2400) ? "DP" : "F";
-            break;
-
-        case 'G':
-        case 'H':
-            $kd_trf_swd = "F";
-            break;
-
-        case 'R':
-            $kd_trf_swd = 'C1';
-            if ($datakb['jumlah_cc'] < 50) $kd_trf_swd = 'A';
-            elseif ($datakb['jumlah_cc'] > 250) $kd_trf_swd = 'C2';
-            break;
-    }
-
-    if ($datakb['kd_jenis_kb'] != 'R') {
-        // if (ereg('0[678]', $datakb['kd_fungsi'])) $kd_trf_swd = 'A';
-        if (preg_match('/0[678]/', $datakb['kd_fungsi'])) $kd_trf_swd = 'A';
-    }
-
-    $tg_daftar = date('d/m/Y');
-    tarif_swd($tg_daftar, $kd_trf_swd, 12);
-
-    $tg_daftar   = date('d/m/Y');
-    $tg_akhir_jr = $datakb['tg_akhir_jr'];
-
-    $d_tg_daftar   = to_date($tg_daftar);
-    $d_tg_akhir_jr = to_date($tg_akhir_jr);
-
-    $swd_pok[0] = 0;
-    $swd_den[0] = 0;
-
-    $terlambat = false;
-    if ($d_tg_akhir_jr < $d_tg_daftar) {
-        $terlambat = true;
-    }
-
-    $sel_tgl = selisih_tgl($tg_akhir_jr, $tg_daftar);
-
-    $daluarsa = false;
-
-    // sudah terlambat
-    if ($sel_tgl['n'] > 0) {
-
-        // $d_tgl = mktime(0, 0, 0, 1, 1, $y+$sel_tgl['y']);
-        $d_tg_daluarsa = mktime(0, 0, 0, 1, 1, date('Y') - 4);
-
-        // sudah daluarsa
-        if ($d_tg_akhir_jr < $d_tg_daluarsa) {
-
-            $daluarsa = true;
-
-            list($d, $m, $y) = split_date($tg_akhir_jr);
-            if ($datakb['jt_berubah'])
-                list($d, $m, $y) = split_date($tg_daftar);
-
-            $y = date('Y', $d_tg_daluarsa);
-
-            // hitung tunggakannya
-            $k = -1;
-            for ($i = 4; $i > 0; $i--) {
-                $k++;
-                $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
-                $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
-                $swd_pok[$i] = $trfswd['prorata_12'];
-                $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
-            }
-        } else {
-            // belum daluarsa
-
-            list($d, $m, $y) = split_date($tg_akhir_jr);
-
-            // jatuh tempo berubah
-            if ($datakb['jt_berubah']) {
-                // tunggakannya
-                $k = -1;
-                for ($i = $sel_tgl['y']; $i > 0; $i--) {
-                    $k++;
-                    if ($i < 5) {
-                        $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
-                        $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
-                        $swd_pok[$i] = $trfswd['prorata_12'];
-                        $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
-                    }
-                }
-
-                // prorata s/d tgl. pendaftaran
-                list($d, $m, $y) = split_date($tg_daftar);
-
-                // tarif prorata
-                $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, $m);
-                $s = (strlen(m) == 1) ? "0$m" : $m;
-
-                // proratanya
-                $swd_pok[0] = $trfswd["prorata_$s"];
-                $swd_den[0] = 0;
-            } else {
-                // jatuh tempo tidak berubah
-
-                // kalo bayar dimuka sekaligus, jumlah thn. tgk + 1
-                $n = ($datakb['byr_dimuka']) ? 1 : 0;
-
-                // tunggakannya
-                $k = -1;
-                for ($i = $sel_tgl['y'] + $n; $i > 0; $i--) {
-                    $k++;
-                    if ($i < 5) {
-                        $tgl = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $k));
-                        $trfswd = tarif_swd($tgl, $kd_trf_swd, 12);
-                        $swd_pok[$i] = $trfswd['prorata_12'];
-                        $swd_den[$i] = $swd_pok[$i] - $trfswd['krt_swd'];
-                    }
-                }
-            }
-            // belum daluarsa
-        }
-
-        list($d, $m, $y) = split_date($tg_akhir_jr);
-        $tg_pre_jr = date('d/m/Y', mktime(
-            0,
-            0,
-            0,
-            $m,
-            $d,
-            $y + $sel_tgl['y']
-        ));
-        if ($datakb['jt_berubah']) {
-            // dihitung dari tgl. pendaftaran
-            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
-        } else {
-
-            if ($datakb['byr_dimuka']) {
-                $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
-                $tg_pre_jr = date('d/m/Y', mktime(
-                    0,
-                    0,
-                    0,
-                    $m,
-                    $d,
-                    $y + $sel_tgl['y'] + 1
-                ));
-            } else {
-                $trfswd = tarif_swd($tg_pre_jr, $kd_trf_swd, 12);
-            }
-        }
-        // pokok tahun berjalan (nilainya ditambah dengan proratanya)
-        $swd_pok[0] += $trfswd['prorata_12'];
-
-        // denda tahun berjalan
-        // $swd_den[0] = $trfswd['prorata_12'] - $trfswd['krt_swd'];
-        $swd_den[0] = hit_den_swd(
-            $tg_daftar,
-            $tg_pre_jr,
-            $trfswd['prorata_12'] - $trfswd['krt_swd']
-        );
-
-        if ($datakb['byr_dimuka']) $swd_den[0] = 0;
-    } else {
-        // belum terlambat
-
-        // kalo jatuh temponya berubah?
-        if ($datakb['jt_berubah']) {
-            // set tgl. jt jr yad.
-            list($d, $m, $y) = split_date($tg_daftar);
-            $tg_akhir_jr_yad = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + 1));
-
-            // hitung selisihnya dgn. tgl. akhir jr yl.
-            $sel_tgl = selisih_tgl($tg_akhir_jr, $tg_akhir_jr_yad);
-
-            // jumlah bulan pengenaan prorata
-            $m = $sel_tgl['m'];
-            if ($sel_tgl['d'] > 0) $m++;
-
-            // tarif swdkllj
-            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, $m);
-            $s = (strlen($m) == 1) ? "0$m" : $m;
-
-            // swdkllj yang harus dibayar!
-            $swd_pok[0] = $trfswd["prorata_$s"];
-            $swd_den[0] = 0;
-        } else {
-            // jatuh tempo tidak berubah!
-
-            // tarif swdkllj
-            $trfswd = tarif_swd($tg_daftar, $kd_trf_swd, 12);
-
-            // swdkllj yang harus dibayar!
-            $swd_pok[0] = $trfswd['prorata_12'];
-            $swd_den[0] = 0;
-        }
-    }
-
-    // kalo ada pemutihan
-    if ($datakb['pemutihan'] == "Y") {
-
-        // sebelum pemutihan
-        $pok = 0;
-        foreach ($swd_pok as &$value) {
-            // $value = pembulatan($value);
-            $pok += $value;
-        }
-
-        $den = 0;
-        foreach ($swd_den as &$value) {
-            // $value = pembulatan($value);
-            if ($value > 100000) $value = 100000;
-            $den += $value;
-        }
-
-        $tot = $pok + $den;
-
-        $datakb['pok_swd_awal'] = $pok;
-        $datakb['den_swd_awal'] = $den;
-        $datakb['tot_swd_awal'] = $tot;
-
-        $set_pp = $datakb['set_pp'];
-
-        // pemutihan pokok swdkllj
-        switch ($set_pp['pokok_swdkllj']) {
-            case "0":
-                $swd_pok[0] = 0;
-                $swd_pok[1] = 0;
-                $swd_pok[2] = 0;
-                $swd_pok[3] = 0;
-                $swd_pok[4] = 0;
-                break;
-
-            case "1":
-                $swd_pok[1] = 0;
-                $swd_pok[2] = 0;
-                $swd_pok[3] = 0;
-                $swd_pok[4] = 0;
-                break;
-
-            case "2":
-                $swd_pok[2] = 0;
-                $swd_pok[3] = 0;
-                $swd_pok[4] = 0;
-                break;
-
-            case "3":
-                $swd_pok[3] = 0;
-                $swd_pok[4] = 0;
-                break;
-
-            case "4":
-                $swd_pok[4] = 0;
-                break;
-        }
-
-        // pemutihan denda swdkllj
-        switch ($set_pp['denda_swdkllj']) {
-            case "0":
-                $swd_den[0] = 0;
-                $swd_den[1] = 0;
-                $swd_den[2] = 0;
-                $swd_den[3] = 0;
-                $swd_den[4] = 0;
-                $swd_den[5] = 0;
-                break;
-
-            case "1":
-                $swd_den[1] = 0;
-                $swd_den[2] = 0;
-                $swd_den[3] = 0;
-                $swd_den[4] = 0;
-                break;
-
-            case "2":
-                $swd_den[2] = 0;
-                $swd_den[3] = 0;
-                $swd_den[4] = 0;
-                break;
-
-            case "3":
-                $swd_den[3] = 0;
-                $swd_den[4] = 0;
-                break;
-
-            case "4":
-                $swd_den[4] = 0;
-                break;
-        }
-    }
-
-    $datakb['swd_pok'] = $swd_pok;
-    $datakb['swd_den'] = $swd_den;
-
-    // Build associative per-period rows for SWDKLLJ (easier JSON consumption)
-    $swd_rows = array();
-    for ($i = 0; $i <= 4; $i++) {
-        $pok = isset($swd_pok[$i]) ? (float) $swd_pok[$i] : 0.0;
-        $den = isset($swd_den[$i]) ? (float) $swd_den[$i] : 0.0;
-        $periode = "";
-        if (!empty($datakb['tg_akhir_jr']) && $pok != 0) {
-            $startPayment = addyear($datakb['tg_akhir_jr'], + 1);
-            $pd = addyear($startPayment, +$i);
-            if ($pd) $periode = $pd;
-        }
-        $swd_rows[] = array(
-            'pok' => $pok,
-            'den' => $den,
-            'tot' => $pok + $den,
-            'periode' => $periode
-        );
-    }
-    $datakb['swd_rows'] = $swd_rows;
-
-    $pok = 0;
-    foreach ($swd_pok as &$value) {
-        // $value = pembulatan($value);
-        $pok += $value;
-    }
-
-    $den = 0;
-    foreach ($swd_den as &$value) {
-        // $value = pembulatan($value);
-        if ($value > 100000) $value = 100000;
-        $den += $value;
-    }
-    $tot = $pok + $den;
-
-    $datakb['pok_swd_akhir'] = $pok;
-    $datakb['den_swd_akhir'] = $den;
-    $datakb['tot_swd_akhir'] = $tot;
-
-    if ($datakb['pemutihan'] == 'Y') {
-        $datakb['jml_pp_swd'] = $datakb['tot_swd_awal'] -
-            $datakb['tot_swd_akhir'];
-    }
-
-    $datakb['pokok_swd'] = number_format($pok, 0, ",", ".");
-    $datakb['denda_swd'] = number_format($den, 0, ",", ".");
-    $datakb['total_swd'] = number_format($tot, 0, ",", ".");
-
-    if ($datakb['jt_berubah']) {
-        list($d, $m, $y) = split_date($tg_daftar);
-        $datakb['tg_akhir_jr_yad'] = date('d/m/Y', mktime(0, 0, 0, $d, $m, $y + 1));
-    } else {
-        $n = ($datakb['byr_dimuka']) ? 2 : 1;
-        list($d, $m, $y) = split_date($tg_akhir_jr);
-        $datakb['tg_akhir_jr_yad'] = date('d/m/Y', mktime(0, 0, 0, $m, $d, $y + $sel_tgl['y'] + $n));
-    }
-
-    return $tot;
-}
-
-function tarif_swd($tgl, $kd_trf_swd, $bln)
-{
-    global $dbonl;
-
-    $tgl = to_dbdate($tgl);
-
-    if (strlen($bln) == 1) $bln = "0$bln";
-    $data = "prorata_" . $bln;
-    $sql = "SELECT $data, krt_swd FROM t_trf_swd
-                WHERE tg_dari <= '$tgl' AND tg_sampai >= '$tgl'
-                  AND kd_trf_swd = '$kd_trf_swd'";
-
-    $row = $dbonl->getrow($sql);
-    if ($row[$data] == $row['krt_swd']) $row['krt_swd'] = 0;
-    return $row;
-
-    if (strlen($bln) == 1) $bln = "0$bln";
-    $data = "prorata_" . $bln;
-
-    $query = "SELECT $data, krt_swd FROM t_trf_swd
-                 WHERE tg_dari <= '$tgl' AND tg_sampai >= '$tgl'
-                   AND kd_trf_swd = '$kd_trf_swd'";
-    $row = $dbonl->getrow($query);
-    if ($row[$data] == $row['krt_swd']) $row['krt_swd'] = 0;
-}
-
-function hit_den_swd($tg_tetap, $tg_akhir, $trf_swd)
-{
-
-    $d_tg_tetap = to_date($tg_tetap);
-    $d_tg_akhir = to_date($tg_akhir);
-
-    $sel_tgl = selisih_tgl($tg_akhir, $tg_tetap);
-    $n = $sel_tgl['n'];
-
-    $pct = 0;
-
-    if ($n > 270) {
-        $pct = 100;
-    } elseif ($n > 180) {
-        $pct = 75;
-    } elseif ($n >  90) {
-        $pct = 50;
-    } else {
-        if ($n > 0) $pct = 25;
-    }
-
-    $denda = ($pct / 100) * $trf_swd;
-    if ($denda > 100000) $denda = 100000;
-
-    return $denda;
-}
-
-
-
-
-// fugsi untuk mengecek total jarak kapan terakhir bayar PKB
-function jarakWaktuPKB($tgl_bayar) {
-    if (!$tgl_bayar) {
-        return [
-            'hari'  => null,
-            'bulan' => null
-        ];
-    }
-
-    $date1 = new DateTime($tgl_bayar);
-    $date2 = new DateTime(date("Y-m-d"));
-    $interval = $date1->diff($date2);
-
-    $bulan = ($interval->y * 12) + $interval->m;
-
-    if ($interval->d > 0) {
-        $bulan++;
-    }
-
-    return [
-        'hari'  => $interval->days,
-        'bulan' => $bulan
-    ];
-}
-
-function jarakWaktuSWDKLLJ($tgl_awal, $tgl_akhir = null) {
-    if (!$tgl_awal) {
-        return [
-            'hari'  => 0,
-            'bulan' => 0
-        ];
-    }
-
-    if (!$tgl_akhir) {
-        $tgl_akhir = date('Y-m-d');
-    }
-
-    $d1 = new DateTime($tgl_awal);
-    $d2 = new DateTime($tgl_akhir);
-    $i  = $d1->diff($d2);
-
-    return [
-        'hari'  => $i->days,
-        'bulan' => ($i->y * 12) + $i->m // FLOOR
-    ];
-}
-
-function mappingPeriodeTahunan($tgl_bayar, $total_bulan) {
-    if (!$tgl_bayar || !$total_bulan || $total_bulan <= 0) {
-        return [];
-    }
-
-    $periode = [];
-    $dateAwal = new DateTime($tgl_bayar);
-    $sisaBulan = $total_bulan;
-    $periodeKe = 1;
-
-    while ($sisaBulan > 0) {
-        $bulanPeriode = min(12, $sisaBulan);
-
-        $start = clone $dateAwal;
-        $end   = clone $dateAwal;
-        $end->modify("+{$bulanPeriode} months");
-
-        $periode[] = [
-            'periode_ke'  => $periodeKe,
-            'dari_tahun'  => (int)$start->format('Y'),
-            'sampai_tahun'=> (int)$end->format('Y'),
-            'total_bulan' => $bulanPeriode,
-            'label'       => $start->format('Y') . '/' . $end->format('Y')
-        ];
-
-        // geser ke periode berikutnya
-        $dateAwal = clone $end;
-        $sisaBulan -= $bulanPeriode;
-        $periodeKe++;
-    }
-
-    return $periode;
-}
-
-function p_mst2trn($vt_mstkb) {
-    return [
-        'nm_merek_kb'  => $vt_mstkb['nm_merek_kb'],
-        'nm_model_kb'  => $vt_mstkb['nm_model_kb'],
-        'nm_jenis_kb'  => $vt_mstkb['nm_jenis_kb'],
-        'th_rakitan'   => $vt_mstkb['th_rakitan'],
-        'jumlah_cc'    => $vt_mstkb['jumlah_cc'],
-        'warna_kb'     => $vt_mstkb['warna_kb'],
-        'kd_plat'      => $vt_mstkb['kd_plat'],
-        'kd_bbm'       => $vt_mstkb['kd_bbm'],
-        'no_chasis'    => $vt_mstkb['no_chasis'],
-        'no_mesin'     => $vt_mstkb['no_mesin'],
-        'tg_akhir_pkb' => $vt_mstkb['tg_akhir_pkb'],
-        'kd_jenis_kb'  => $vt_mstkb['kd_jenis_kb'] ?? null,
-        'kd_kel_kb'    => $vt_mstkb['kd_kel_kb'] ?? null,
-        'kd_fungsi'    => $vt_mstkb['kd_fungsi'] ?? null,
-    ];
-}
-
-?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Info Kendaraan Bermotor - j-SAMSAT</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Info Pajak Kendaraan Bermotor - j-SAMSAT</title>
     <script src="../../../staging/tailwind/tailwind.js"></script>
-    <style>
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
-        html, body {
-            min-height: 100vh;
-        }
-        .content-wrapper {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .main-content {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding-top: 1.5rem;
-            padding-bottom: 1.5rem;
-        }
-        @media (max-width: 640px) {
-            .main-content {
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-            }
-        }
-        @media (max-width: 768px) {
-            .max-w-2xl {
-                max-width: 98vw !important;
-                padding-left: 0.5rem !important;
-                padding-right: 0.5rem !important;
-            }
-        }
-        @media (min-width: 1024px) {
-            .main-content {
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-            }
-        }
-    </style>
 </head>
-<body class="min-h-screen relative overflow-x-hidden">
-    <!-- Background Image with Overlay -->
-    <!-- <div class="fixed inset-0 z-0">
-        <div class="w-full h-full bg-cover bg-center bg-no-repeat" style="background-image: url('https://jambisamsat.net/assets/images/samsatjambi.jpg');"></div>
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-900/80 to-indigo-900/80"></div>
-    </div> -->
-    <!-- Content Wrapper -->
-    <div class="relative z-10 content-wrapper" style="position: relative; z-index: 10;">
-        <!-- Header -->
-        <header class="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-20">
-            <div class="container mx-auto px-2 sm:px-4 py-3 flex items-center justify-between min-h-[64px] gap-2">
-                <a href="../../coba.php" class="inline-flex items-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow text-sm sm:text-base flex-shrink-0">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                    Menu Utama
-                </a>
-                <div class="flex-1 text-center">
-                    <h1 class="text-xl sm:text-3xl lg:text-4xl font-bold text-blue-600 mb-1 leading-tight">J-SAMSAT</h1>
-                    <p class="text-xs sm:text-base lg:text-lg text-gray-600 leading-tight">INFORMASI DATA KENDARAAN</p>
-                </div>
-                <div class="w-[110px] sm:w-[130px] flex-shrink-0"></div>
-            </div>
-        </header>
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="container mx-auto px-2 sm:px-4 py-4 lg:py-0 w-full">
-                <div class="max-w-2xl mx-auto w-full">
-                    <div class="text-center mb-4 lg:mb-6 fade-in-up">
-                        <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold text-orange-400 mb-2 drop-shadow-lg">PENCARIAN DATA KENDARAAN</h2>
-                        <p class="text-white text-xs sm:text-base lg:text-lg drop-shadow">Masukkan data kendaraan yang ingin dicari</p>
-                    </div>
-                    <form method="post" class="mb-8 space-y-4 bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-4 sm:p-6">
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                            <label for="no_polisi" class="w-full sm:w-32 font-semibold text-sm sm:text-base">No. Polisi</label>
-                            <input type="text" id="no_polisi" name="no_polisi" class="flex-1 border border-gray-300 rounded px-3 py-2 text-base sm:text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-400" value="<?php echo htmlspecialchars($no_polisi); ?>" required />
-                        </div>
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                            <label for="nm_pemilik" class="w-full sm:w-32 font-semibold text-sm sm:text-base">Nama Pemilik</label>
-                            <input type="text" id="nm_pemilik" name="nm_pemilik" class="flex-1 border border-gray-300 rounded px-3 py-2 text-base sm:text-lg uppercase focus:outline-none focus:ring-2 focus:ring-blue-400" value="<?php echo htmlspecialchars($nm_pemilik); ?>" />
-                        </div>
-                        <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                            <label class="inline-flex items-center text-sm sm:text-base"><input type="checkbox" name="noka" value="1" <?php if($noka) echo 'checked'; ?>> <span class="ml-2">Tampilkan No. Rangka</span></label>
-                            <label class="inline-flex items-center text-sm sm:text-base"><input type="checkbox" name="nosin" value="1" <?php if($nosin) echo 'checked'; ?>> <span class="ml-2">Tampilkan No. Mesin</span></label>
-                        </div>
-                        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                            <button type="submit" class="w-full sm:w-auto py-2 px-4 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">Cari Data</button>
-                            <?php if ($found && $result): ?>
-                            <button type="reset" class="w-full sm:w-auto py-2 px-4 bg-gray-200 text-gray-700 font-bold rounded hover:bg-gray-300 border border-gray-300">Reset</button>
-                            <?php endif; ?>
-                        </div>
-                    </form>
-                    <!-- <?php
-                        // if ($found && $result) {
-                        //     echo '<pre>';
-                        //     // var_dump($result);
-                        //     // var_dump($result);
-                        //     // var_dump($result["tg_bayar"]);
-                        //     var_dump($tagihan);
-                        //     echo '</pre>';
-                        //     die();
-                        // }
-                    ?> -->
+<body class="bg-gray-50 min-h-screen p-4">
+    <div class="max-w-3xl mx-auto">
+        <!-- Header & Form -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
 
-                    <?php if ($error): ?>
-                        <div class="bg-red-100 text-red-700 p-4 rounded mb-4 text-center font-semibold text-sm sm:text-base"><?php echo $error; ?></div>
-                    <?php endif; ?>
-                    <?php if ($no_polisi && !$found && !$error): ?>
-                        <div class="bg-yellow-100 text-yellow-800 p-4 rounded text-center font-semibold text-sm sm:text-base">DATA TIDAK ADA</div>
-                    <?php endif; ?>
-                    <?php if ($found && $result): ?>
-                    <div class="mt-6 bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-4 sm:p-6 overflow-x-auto">
-                        <h2 class="text-lg sm:text-xl font-bold mb-4 text-blue-700">DATA KENDARAAN <?php echo htmlspecialchars($no_polisi); ?></h2>
-                        <table class="w-full text-base sm:text-lg border-t border-gray-200">
-                            <tbody>
-                                <tr>
-                                    <td class="py-2 font-semibold">MEREK</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['nm_merek_kb']); ?></td>
+            <div class="w-full flex justify-between mb-4">
+                <button 
+                    onclick="goBack()" 
+                    class="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-4 transition"
+                    title="Kembali ke halaman sebelumnya"
+                >
+                    <svg 
+                        width="20" 
+                        height="20"
+                        fill="currentColor" 
+                        version="1.1" 
+                        id="Capa_1" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:xlink="http://www.w3.org/1999/xlink" 
+                        viewBox="0 0 956.199 956.199" 
+                        xml:space="preserve">
+                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                        <g id="SVGRepo_iconCarrier"> 
+                            <g> 
+                                <path d="M859.649,385.6h-255.2L680.05,310c35.1-35.1,35.1-92.1,0-127.3c-35.101-35.1-92.101-35.1-127.3,0L323.449,412 c-21.6,22.6-32.199,55.3-23.6,85.9c2.3,8.299,5.8,17.5,10.5,24.799c3.9,6,8.4,11.201,13.1,16.602l234.2,234.199 c17.601,17.6,40.601,26.4,63.601,26.4s46.1-8.801,63.6-26.4c35.1-35.1,35.1-92.1,0-127.301l-80.6-80.6h255.1 c49.7,0,90-40.299,90-90C949.35,425.9,909.35,385.6,859.649,385.6z"></path> 
+                                <path d="M96.85,0c-49.7,0-90,40.3-90,90v776.199c0,49.701,40.3,90,90,90s90-40.299,90-90V90C186.85,40.3,146.55,0,96.85,0z"></path> 
+                            </g> 
+                        </g>
+                    </svg>    
+                    <span class="text-sm font-medium">Kembali</span>
+                </button>
+                <a 
+                    href="infopkb.html"
+                    class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                >
+                    Perhitungan lama
+                </a>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">Cek Detail Kendaraan</h1>
+            <div class="flex gap-2">
+                <input 
+                    type="text" 
+                    id="nopolInput" 
+                    placeholder="Masukkan No. Polisi (Contoh: BH 6869 IK)" 
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none text-sm"
+                >
+                <button 
+                    onclick="cekKendaraan()" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                >
+                    Cari
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden bg-white rounded-lg shadow p-4">
+            <div class="flex items-center gap-3">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <p class="text-gray-600 text-sm">Memuat data...</p>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" class="hidden bg-red-50 border border-red-300 rounded-lg shadow p-4">
+            <p id="errorMessage" class="text-red-700 text-sm"></p>
+        </div>
+
+        <!-- Result -->
+        <div id="result" class="hidden bg-white rounded-lg shadow p-5">
+            <!-- No Polisi -->
+            <div class="bg-blue-50 rounded p-3 mb-4">
+                <p class="text-xs text-gray-600 mb-1">Nomor Polisi</p>
+                <p id="noPol" class="text-xl font-bold text-blue-700"></p>
+            </div>
+            
+            <!-- Info Kendaraan -->
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">
+                <div>
+                    <span class="text-gray-500 text-xs">Merek</span>
+                    <p id="merek" class="font-medium text-gray-900"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">Model</span>
+                    <p id="model" class="font-medium text-gray-900"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">Jenis</span>
+                    <p id="jenis" class="font-medium text-gray-900"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">Tahun</span>
+                    <p id="tahun" class="font-medium text-gray-900"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">Warna</span>
+                    <p id="warna" class="font-medium text-gray-900"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">CC</span>
+                    <p id="cc" class="font-medium text-gray-900"></p>
+                </div>
+            </div>
+
+            <!-- Masa Berlaku -->
+            <div class="border-t pt-4 mb-4">
+                <p class="text-xs font-semibold text-gray-700 mb-2">MASA BERLAKU</p>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <span class="text-gray-500 text-xs">PKB sampai</span>
+                        <p id="tglPkb" class="font-semibold text-gray-900"></p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-xs">STNK sampai</span>
+                        <p id="tglStnk" class="font-semibold text-gray-900"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Lainnya -->
+            <div class="border-t pt-4 space-y-2.5 text-sm">
+                <div>
+                    <span class="text-gray-500 text-xs">Bahan Bakar</span>
+                    <p class="font-medium text-gray-900"><span id="bbmNama"></span></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">NJKB</span>
+                    <p class="font-semibold text-gray-900" id="njkbNilai"></p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-xs">Lokasi Transaksi Terakhir</span>
+                    <p class="font-medium text-gray-900" id="lokasiNama"></p>
+                </div>
+            </div>
+
+            <!-- Button Cek Pajak -->
+            <div class="border-t pt-4 mt-4">
+                <button 
+                    onclick="cekPajak()" 
+                    id="btnCekPajak"
+                    class="w-full px-4 py-2.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium transition"
+                >
+                    Cek Pajak & Jasa Raharja
+                </button>
+            </div>
+        </div>
+
+        <!-- Result Pajak -->
+        <div id="resultPajak" class="hidden space-y-4 mt-4">
+            <!-- Info Pajak -->
+            <div id="infoPajak" class="hidden bg-white rounded-lg shadow p-5">
+                <!-- Loading Pajak -->
+                <div id="loadingPajak" class="flex items-center gap-3 mb-4">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                    <p class="text-gray-600 text-sm">Memuat data pajak...</p>
+                </div>
+                
+                <div id="contentPajak" class="hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Informasi Pajak</h3>
+                
+                <!-- Total Tagihan -->
+                <div class="bg-red-50 rounded p-4 mb-4">
+                    <p class="text-xs text-gray-600 mb-1">Total Tagihan</p>
+                    <p id="grandTotal" class="text-2xl font-bold text-red-600"></p>
+                </div>
+
+                <!-- Terakhir Bayar -->
+                <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+                    <div>
+                        <span class="text-gray-500 text-xs">Terakhir Bayar</span>
+                        <p id="terakhirBayar" class="font-semibold text-gray-900"></p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-xs">Jarak Waktu</span>
+                        <p id="jarakWaktu" class="font-semibold text-gray-900"></p>
+                    </div>
+                </div>
+
+                <!-- Total PKB & Opsen -->
+                <div class="border-t pt-4 mb-4">
+                    <p class="text-xs font-semibold text-gray-700 mb-3">TOTAL TAGIHAN</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <!-- PKB Pokok -->
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                            <p class="text-gray-600 text-xs mb-1">PKB Pokok</p>
+                            <p id="pkbPokok" class="font-bold text-blue-700 text-lg"></p>
+                        </div>
+                        <!-- Denda PKB -->
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda PKB</p>
+                            <p id="pkbDenda" class="font-bold text-red-700 text-lg"></p>
+                        </div>
+                        <!-- Opsen Pokok -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-3 border border-indigo-200">
+                            <p class="text-gray-600 text-xs mb-1">Opsen Pokok</p>
+                            <p id="opsenPokok" class="font-bold text-indigo-700 text-lg"></p>
+                        </div>
+                        <!-- Denda Opsen -->
+                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda Opsen</p>
+                            <p id="opsenDenda" class="font-bold text-orange-700 text-lg"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rincian Per Periode -->
+                <div class="border-t pt-4">
+                    <p class="text-xs font-semibold text-gray-700 mb-3">RINCIAN PER PERIODE</p>
+                    <div class="overflow-x-auto">
+                        <table id="rincianPeriode" class="w-full text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-left">
+                                    <th class="p-2 font-semibold text-gray-700">Periode</th>
+                                    <th class="p-2 font-semibold text-gray-700">Telat</th>
+                                    <th class="p-2 font-semibold text-gray-700 text-right">PKB Pokok</th>
+                                    <th class="p-2 font-semibold text-gray-700 text-right">Denda PKB</th>
+                                    <th class="p-2 font-semibold text-gray-700 text-right">Opsen</th>
+                                    <th class="p-2 font-semibold text-gray-700 text-right">Denda Opsen</th>
+                                    <th class="p-2 font-semibold text-gray-700 text-right">Total</th>
                                 </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">MODEL/TIPE</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['nm_model_kb']); ?></td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">JENIS</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['nm_jenis_kb']); ?></td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">TAHUN</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['th_rakitan']); ?></td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">CC</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['jumlah_cc']); ?> cc</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 font-semibold">WARNA</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['warna_kb']); ?></td>
-                                </tr>
-                                <?php if ($noka): ?>
-                                <tr>
-                                    <td class="py-2 font-semibold">NO. RANGKA</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['no_chasis']); ?></td>
-                                </tr>
-                                <?php endif; ?>
-                                <?php if ($nosin): ?>
-                                <tr>
-                                    <td class="py-2 font-semibold">NO. MESIN</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2"><?php echo htmlspecialchars($result['no_mesin']); ?></td>
-                                </tr>
-                                <?php endif; ?>
-                                <tr>
-                                    <td class="py-2 font-semibold">TGL. AKHIR PKB</td>
-                                    <td class="py-2">:</td>
-                                    <td class="py-2 text-lg sm:text-xl font-bold"><?php echo htmlspecialchars($result['tg_akhir_pkb']); ?></td>
-                                </tr>
+                            </thead>
+                            <tbody id="rincianPeriodeBody">
                             </tbody>
                         </table>
                     </div>
-                    <?php endif; ?>
+                </div>
                 </div>
             </div>
-        </main>
-        <!-- Footer -->
-        <footer class="bg-white/95 backdrop-blur-md shadow-lg">
-            <div class="container mx-auto px-4 py-3 lg:py-4 text-center text-gray-600">
-                <p class="text-sm lg:text-base">&copy; 2024 Dipenda Prov. Jambi - SAMSAT Jambi</p>
-            </div>
-        </footer>
-    </div>
-<script>
-    // Agar tombol reset benar-benar mengosongkan form (termasuk value dari PHP)
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.querySelector('form[method="post"]');
-        var resetBtn = form.querySelector('button[type="reset"]');
-        resetBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Reload halaman tanpa POST agar hasil pencarian juga hilang
-            window.location.href = window.location.pathname;
-        });
-    });
-</script>
 
-<script>
-    // Console log untuk debugging semua data yang diambil
-    <?php if ($no_polisi): ?>
-    console.log('  Result:', <?php echo json_encode($result); ?>);
-    console.log('  Tagihan:', <?php echo json_encode($tagihan); ?>);
-    console.log('%c=== DATA QUERY DEBUG ===', 'color: #2563eb; font-weight: bold; font-size: 16px;');
-    
-    console.log('%c📋 Parameter Input:', 'color: #059669; font-weight: bold;');
-    console.log('  No. Polisi:', <?php echo json_encode($no_polisi); ?>);
-    console.log('  Nama Pemilik:', <?php echo json_encode($nm_pemilik); ?>);
-    console.log('  Tampilkan No. Rangka:', <?php echo json_encode((bool)$noka); ?>);
-    console.log('  Tampilkan No. Mesin:', <?php echo json_encode((bool)$nosin); ?>);
-    
-    <?php if ($found && $result): ?>
-    console.log('%c\n✅ DATA BERHASIL DITEMUKAN', 'color: #16a34a; font-weight: bold; font-size: 14px;');
-    console.log('%c📊 Source Table:', 'color: #7c3aed; font-weight: bold;');
-    console.log('  Table:', <?php echo json_encode($table); ?>);
-    console.log('  Keterangan:', <?php 
-        if ($found == 1) echo '"Data Transaksi Tahun Berjalan (t_trnkb)"';
-        elseif ($found == 2) echo '"Data Master Kendaraan (t_mstkb)"';
-        elseif ($found == 3) echo '"Data Transaksi Selesai (tt_trnkb)"';
-    ?>);
-    
-    console.log('%c\n🚗 Data Kendaraan Lengkap:', 'color: #dc2626; font-weight: bold;');
-    console.table(<?php echo json_encode($result); ?>);
-    
-    console.log('%c\n📝 Detail Data:', 'color: #ea580c; font-weight: bold;');
-    console.log('  Merek:', <?php echo json_encode($result['nm_merek_kb']); ?>);
-    console.log('  Model/Tipe:', <?php echo json_encode($result['nm_model_kb']); ?>);
-    console.log('  Jenis:', <?php echo json_encode($result['nm_jenis_kb']); ?>);
-    console.log('  Tahun:', <?php echo json_encode($result['th_rakitan']); ?>);
-    console.log('  CC:', <?php echo json_encode($result['jumlah_cc']); ?>);
-    console.log('  Warna:', <?php echo json_encode($result['warna_kb']); ?>);
-    <?php if ($noka): ?>
-    console.log('  No. Rangka:', <?php echo json_encode($result['no_chasis']); ?>);
-    <?php endif; ?>
-    <?php if ($nosin): ?>
-    console.log('  No. Mesin:', <?php echo json_encode($result['no_mesin']); ?>);
-    <?php endif; ?>
-    console.log('  Tgl. Sekarang:', <?php echo json_encode($result['date_now']); ?>);
-    console.log('  Tgl. Akhir PKB:', <?php echo json_encode($result['tg_akhir_pkb']); ?>);
-    console.log('  Lokasi Bayar:', <?php echo json_encode($result['nm_lokasi']); ?>);
-    console.log('  Nilai Jual Kendaraan:', <?php echo json_encode($result['nilai_jual_kb']); ?>);
-    
-    <?php elseif ($no_polisi && !$found && !$error): ?>
-    console.warn('%c⚠️ DATA TIDAK DITEMUKAN', 'color: #ca8a04; font-weight: bold; font-size: 14px;');
-    console.log('Pencarian untuk No. Polisi:', <?php echo json_encode($no_polisi); ?>);
-    console.log('Status: Tidak ada data di semua tabel (t_trnkb, t_mstkb, tt_trnkb)');
-    <?php endif; ?>
-    
-    <?php if ($error): ?>
-    console.error('%c❌ ERROR', 'color: #dc2626; font-weight: bold; font-size: 14px;');
-    console.error('Error Message:', <?php echo json_encode($error); ?>);
-    <?php endif; ?>
-    
-    console.log('%c========================', 'color: #2563eb; font-weight: bold;');
-    <?php endif; ?>
-</script>
+            <!-- Info PNBP -->
+            <div id="infoPNBP" class="hidden bg-white rounded-lg shadow p-5">
+                <!-- Loading PNBP -->
+                <div id="loadingPNBP" class="flex items-center gap-3 mb-4">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <p class="text-gray-600 text-sm">Memuat data PNBP...</p>
+                </div>
+                
+                <div id="contentPNBP" class="hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">PNBP (Penerimaan Negara Bukan Pajak)</h3>
+                <div class="text-sm">
+                    <div id="pnbpContent">
+                        <!-- Total PNBP -->
+                        <div class="bg-blue-50 rounded p-4 mb-4">
+                            <p class="text-xs text-gray-600 mb-1">Total PNBP</p>
+                            <p id="pnbpTotal" class="text-2xl font-bold text-blue-600"></p>
+                        </div>
+                        
+                        <!-- Rincian PNBP -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- STNK -->
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
+                                <p class="text-gray-600 text-xs mb-1">STNK</p>
+                                <p id="pnbpSTNK" class="font-bold text-green-700 text-lg"></p>
+                            </div>
+                            <!-- TNKB -->
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
+                                <p class="text-gray-600 text-xs mb-1">TNKB</p>
+                                <p id="pnbpTNKB" class="font-bold text-purple-700 text-lg"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="pnbpEmpty" class="hidden">
+                        <div class="bg-gray-50 rounded p-4 text-center">
+                            <p class="text-gray-500">Data PNBP tidak tersedia</p>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Info Jasa Raharja -->
+            <div id="infoJR" class="hidden bg-white rounded-lg shadow p-5">
+                <!-- Loading JR -->
+                <div id="loadingJR" class="flex items-center gap-3 mb-4">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                    <p class="text-gray-600 text-sm">Memuat data Jasa Raharja...</p>
+                </div>
+                
+                <div id="contentJR" class="hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Jasa Raharja</h3>
+                
+                <!-- Total Tarif JR -->
+                <div class="bg-green-50 rounded p-4 mb-4">
+                    <p class="text-xs text-gray-600 mb-1">Total Biaya Jasa Raharja</p>
+                    <p id="jrTotal" class="text-2xl font-bold text-green-600"></p>
+                </div>
+
+                <!-- Rincian Tarif -->
+                <div class="text-sm">
+                    <p class="text-xs font-semibold text-gray-700 mb-3">RINCIAN BIAYA</p>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <!-- Pokok JR -->
+                        <div class="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 border border-teal-200">
+                            <p class="text-gray-600 text-xs mb-1">Pokok JR</p>
+                            <p id="jrPokok" class="font-bold text-teal-700 text-lg"></p>
+                        </div>
+                        <!-- Denda JR -->
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
+                            <p class="text-gray-600 text-xs mb-1">Denda JR</p>
+                            <p id="jrDenda" class="font-bold text-red-700 text-lg"></p>
+                        </div>
+                    </div>
+
+                    <!-- Tarif Per Periode -->
+                    <div class="border-t pt-4">
+                        <p class="text-xs font-semibold text-gray-700 mb-3">RINCIAN PER PERIODE</p>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="bg-gray-100 text-left">
+                                        <th class="p-2 font-semibold text-gray-700">Periode</th>
+                                        <th class="p-2 font-semibold text-gray-700 text-right">Pokok JR</th>
+                                        <th class="p-2 font-semibold text-gray-700 text-right">Denda JR</th>
+                                        <th class="p-2 font-semibold text-gray-700 text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tarifPerTahunBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Total Keseluruhan -->
+            <div id="infoTotal" class="hidden bg-white rounded-lg shadow p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Total Keseluruhan</h3>
+                    <button 
+                        onclick="openInfoModal()" 
+                        class="text-blue-600 hover:text-blue-800 transition"
+                        title="Informasi Perhitungan PKB"
+                    >
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-5 mb-4">
+                    <p class="text-xs text-gray-600 mb-1">Total Yang Harus Dibayar</p>
+                    <p id="totalKeseluruhan" class="text-3xl font-bold text-gray-900"></p>
+                </div>
+
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center p-3 bg-red-50 rounded">
+                        <span class="text-gray-700 font-medium">Total PKB (Pajak)</span>
+                        <span id="totalPajak" class="font-bold text-red-600"></span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded">
+                        <span class="text-gray-700 font-medium">Total Jasa Raharja</span>
+                        <span id="totalJR" class="font-bold text-green-600"></span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded">
+                        <span class="text-gray-700 font-medium">PNBP</span>
+                        <span id="totalPNBP" class="font-bold text-blue-600">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Info PKB -->
+    <div id="infoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-800">Informasi Perhitungan PKB</h2>
+                <button onclick="closeInfoModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="px-6 py-5 space-y-4">
+                <!-- Kapan Opsen Berlaku -->
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                    <h3 class="font-bold text-gray-800 mb-2 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        Opsen Berlaku Ketika
+                    </h3>
+                    <p class="text-gray-700">Tanggal transaksi <span class="font-bold">≥ 25 Januari 2025</span></p>
+                </div>
+
+                <!-- Perhitungan PKB -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 class="font-bold text-gray-800 mb-3 text-lg">Perhitungan PKB</h3>
+                    
+                    <div class="space-y-3">
+                        <!-- Dengan Opsen -->
+                        <div class="bg-white rounded p-3">
+                            <p class="font-semibold text-blue-700 mb-2">✓ Dengan Opsen (≥ 25-01-2025)</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p class="font-mono bg-gray-50 p-2 rounded">
+                                    PKB = 1% × Nilai Jual × Bobot × 90.4%
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Tanpa Opsen -->
+                        <div class="bg-white rounded p-3">
+                            <p class="font-semibold text-gray-700 mb-2">✗ Tanpa Opsen (< 25-01-2025)</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p class="font-mono bg-gray-50 p-2 rounded">
+                                    PKB = 1.5% × Nilai Jual × Bobot × 100%
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perhitungan Opsen -->
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 class="font-bold text-gray-800 mb-3 text-lg">Perhitungan Opsen</h3>
+                    <div class="bg-white rounded p-3">
+                        <div class="text-sm text-gray-700">
+                            <p class="font-mono bg-gray-50 p-2 rounded">
+                                Opsen = 66% × PKB
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perhitungan Denda -->
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h3 class="font-bold text-gray-800 mb-3 text-lg">Perhitungan Denda</h3>
+                    
+                    <div class="space-y-3">
+                        <!-- Dengan Opsen -->
+                        <div class="bg-white rounded p-3">
+                            <p class="font-semibold text-blue-700 mb-2">✓ Dengan Opsen</p>
+                            <div class="text-sm text-gray-700 space-y-2">
+                                <div>
+                                    <p class="font-medium text-gray-600 mb-1">Denda PKB:</p>
+                                    <p class="font-mono bg-gray-50 p-2 rounded">
+                                        = (1% + Bulan Telat × 2%) × PKB
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-600 mb-1">Denda Opsen:</p>
+                                    <p class="font-mono bg-gray-50 p-2 rounded">
+                                        = (1% + Bulan Telat × 1%) × Opsen
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tanpa Opsen -->
+                        <div class="bg-white rounded p-3">
+                            <p class="font-semibold text-gray-700 mb-2">✗ Tanpa Opsen</p>
+                            <div class="text-sm text-gray-700 space-y-2">
+                                <div>
+                                    <p class="font-medium text-gray-600 mb-1">Denda PKB:</p>
+                                    <p class="font-mono bg-gray-50 p-2 rounded">
+                                        = (2% + Bulan Telat × 2%) × PKB
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-600 mb-1">Denda Opsen:</p>
+                                    <p class="font-mono bg-gray-50 p-2 rounded">
+                                        = 0
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Catatan -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h3 class="font-bold text-gray-800 mb-2">Catatan Penting</h3>
+                    <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                        <li>Nilai Jual = NJKB (Nilai Jual Kendaraan Bermotor)</li>
+                        <li>Bobot umumnya bernilai 1 untuk kendaraan standar</li>
+                        <li>Perhitungan berlaku untuk kendaraan bermotor roda 2 dan roda 4</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sticky bottom-0 bg-gray-50 border-t px-6 py-4">
+                <button 
+                    onclick="closeInfoModal()" 
+                    class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                >
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden fixed top-4 right-4 z-50 transition-all duration-300">
+        <div class="bg-white rounded-lg shadow-lg p-4 min-w-[300px] max-w-md border-l-4" id="toastContent">
+            <div class="flex items-start gap-3">
+                <div id="toastIcon" class="flex-shrink-0"></div>
+                <div class="flex-1">
+                    <p id="toastTitle" class="font-semibold text-sm"></p>
+                    <p id="toastMessage" class="text-xs text-gray-600 mt-1"></p>
+                </div>
+                <button onclick="hideToast()" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- script detail kendaraan -->
+    <script>
+        // API Token
+        const API_TOKEN = 'd84e44fc2e1cb516f2d58580fcfc00a453402f0a13219ef82481d0ebad2944c8';
+        
+        // Variable untuk menyimpan nopol saat ini
+        let currentNopol = '';
+
+        // Fungsi untuk kembali ke halaman sebelumnya
+        function goBack() {
+            window.history.back();
+        }
+
+        async function cekKendaraan() {
+            const nopol = document.getElementById('nopolInput').value.trim();
+            
+            if (!nopol) {
+                showError('Nomor polisi tidak boleh kosong');
+                return;
+            }
+
+            // Hide previous results
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`http://192.168.0.2:3333/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+
+                document.getElementById('loading').classList.add('hidden');
+
+                if (data.status && data.data) {
+                    showResult(data.data);
+                } else {
+                    showError(data.message || 'Data tidak ditemukan');
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.add('hidden');
+                showError('Gagal mengambil data. Silakan coba lagi.');
+                console.error('Error:', error);
+            }
+        }
+
+        function showResult(data) {
+            // Simpan nomor polisi untuk keperluan cek pajak
+            currentNopol = data.no_polisi || '';
+            
+            // Informasi Utama
+            document.getElementById('noPol').textContent = data.no_polisi || '-';
+            document.getElementById('merek').textContent = data.nm_merek_kb || '-';
+            document.getElementById('model').textContent = data.nm_model_kb || '-';
+            document.getElementById('jenis').textContent = data.nm_jenis_kb || '-';
+            document.getElementById('tahun').textContent = data.th_rakitan || '-';
+            document.getElementById('warna').textContent = data.warna_kb || '-';
+            document.getElementById('cc').textContent = data.jumlah_cc ? data.jumlah_cc + ' CC' : '-';
+
+            // Masa Berlaku
+            document.getElementById('tglPkb').textContent = formatDate(data.tg_akhir_pkb);
+            document.getElementById('tglStnk').textContent = formatDate(data.tg_akhir_stnk);
+
+            // BBM & NJKB & Lokasi
+            document.getElementById('bbmNama').textContent = data.bbm?.nama || '-';
+            document.getElementById('njkbNilai').textContent = data.njkb?.nilai_jual || '-';
+            document.getElementById('lokasiNama').textContent = data.lokasi_transaksi_terakhir?.nama || '-';
+
+            document.getElementById('result').classList.remove('hidden');
+            
+            // Reset hasil pajak sebelumnya
+            document.getElementById('resultPajak').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('id-ID', options);
+        }
+
+        // Allow Enter key to trigger search
+        document.getElementById('nopolInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                cekKendaraan();
+            }
+        });
+
+        // Toast Notification Functions
+        let toastQueue = [];
+        let isToastShowing = false;
+
+        function showToast(title, message, type = 'info') {
+            toastQueue.push({ title, message, type });
+            if (!isToastShowing) {
+                displayNextToast();
+            }
+        }
+
+        function displayNextToast() {
+            if (toastQueue.length === 0) {
+                isToastShowing = false;
+                return;
+            }
+
+            isToastShowing = true;
+            const { title, message, type } = toastQueue.shift();
+
+            const toast = document.getElementById('toast');
+            const toastContent = document.getElementById('toastContent');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMessage = document.getElementById('toastMessage');
+
+            // Set content
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
+
+            // Set style based on type
+            if (type === 'success') {
+                toastContent.className = 'bg-white rounded-lg shadow-lg p-4 min-w-[300px] max-w-md border-l-4 border-green-500';
+                toastIcon.innerHTML = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                toastTitle.className = 'font-semibold text-sm text-green-800';
+            } else if (type === 'error') {
+                toastContent.className = 'bg-white rounded-lg shadow-lg p-4 min-w-[300px] max-w-md border-l-4 border-red-500';
+                toastIcon.innerHTML = '<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
+                toastTitle.className = 'font-semibold text-sm text-red-800';
+            } else if (type === 'warning') {
+                toastContent.className = 'bg-white rounded-lg shadow-lg p-4 min-w-[300px] max-w-md border-l-4 border-yellow-500';
+                toastIcon.innerHTML = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+                toastTitle.className = 'font-semibold text-sm text-yellow-800';
+            } else {
+                toastContent.className = 'bg-white rounded-lg shadow-lg p-4 min-w-[300px] max-w-md border-l-4 border-blue-500';
+                toastIcon.innerHTML = '<svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>';
+                toastTitle.className = 'font-semibold text-sm text-blue-800';
+            }
+
+            // Show toast
+            toast.classList.remove('hidden');
+
+            // Auto hide after 3 seconds
+            setTimeout(() => {
+                hideToast();
+                setTimeout(displayNextToast, 300); // Show next toast after 300ms
+            }, 3000);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('hidden');
+        }
+
+        // Modal Functions
+        function openInfoModal() {
+            document.getElementById('infoModal').classList.remove('hidden');
+        }
+
+        function closeInfoModal() {
+            document.getElementById('infoModal').classList.add('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('infoModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeInfoModal();
+            }
+        });
+    </script>
+
+    <!-- script cek dan calculate PKB,JR, dan PNBP -->
+    <script>
+        async function cekPajak() {
+            if (!currentNopol) {
+                showToast('Perhatian', 'Silakan cari kendaraan terlebih dahulu', 'warning');
+                return;
+            }
+
+            // Show result containers
+            document.getElementById('resultPajak').classList.remove('hidden');
+            document.getElementById('infoPajak').classList.remove('hidden');
+            document.getElementById('infoPNBP').classList.remove('hidden');
+            document.getElementById('infoJR').classList.remove('hidden');
+            
+            // Show all loading states
+            document.getElementById('loadingPajak').classList.remove('hidden');
+            document.getElementById('contentPajak').classList.add('hidden');
+            document.getElementById('loadingPNBP').classList.remove('hidden');
+            document.getElementById('contentPNBP').classList.add('hidden');
+            document.getElementById('loadingJR').classList.remove('hidden');
+            document.getElementById('contentJR').classList.add('hidden');
+            document.getElementById('infoTotal').classList.add('hidden');
+
+            let successCount = 0;
+            let errorMessages = [];
+            let totalGrandAll = 0;
+            let totalPajak = '';
+            let totalJR = 0;
+            let totalPNBP = 'Rp 0';
+
+            // Fetch PNBP
+            try {
+                const pnbpRes = await fetch(`http://192.168.0.2:3333/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const pnbpData = await pnbpRes.json();
+
+                document.getElementById('loadingPNBP').classList.add('hidden');
+                document.getElementById('contentPNBP').classList.remove('hidden');
+
+                if (pnbpData.status && pnbpData.data) {
+                    totalPNBP = displayPNBP(pnbpData.data);
+                    successCount++;
+                    showToast('PNBP Berhasil', 'Data PNBP berhasil dimuat', 'success');
+                } else {
+                    totalPNBP = displayPNBP(null);
+                    errorMessages.push('PNBP: ' + (pnbpData.message || 'Data tidak ditemukan'));
+                    showToast('PNBP Gagal', pnbpData.message || 'Data PNBP tidak ditemukan', 'error');
+                }
+            } catch (error) {
+                document.getElementById('loadingPNBP').classList.add('hidden');
+                document.getElementById('contentPNBP').classList.remove('hidden');
+                totalPNBP = displayPNBP(null);
+                errorMessages.push('PNBP: Gagal terhubung ke server');
+                showToast('PNBP Error', 'Gagal mengambil data PNBP', 'error');
+                console.error('Error PNBP:', error);
+            }
+
+            // Fetch Pajak
+            try {
+                const pajakRes = await fetch(`http://192.168.0.2:3333/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const pajakData = await pajakRes.json();
+
+                document.getElementById('loadingPajak').classList.add('hidden');
+                document.getElementById('contentPajak').classList.remove('hidden');
+
+                if (pajakData.status && pajakData.data) {
+                    displayPajak(pajakData.data);
+                    successCount++;
+                    showToast('Pajak Berhasil', 'Data pajak berhasil dimuat', 'success');
+                    totalPajak = pajakData.data.tagihan.total.grand_total;
+                } else {
+                    errorMessages.push('Pajak: ' + (pajakData.message || 'Data tidak ditemukan'));
+                    showToast('Pajak Gagal', pajakData.message || 'Data pajak tidak ditemukan', 'error');
+                }
+            } catch (error) {
+                document.getElementById('loadingPajak').classList.add('hidden');
+                document.getElementById('contentPajak').classList.remove('hidden');
+                errorMessages.push('Pajak: Gagal terhubung ke server');
+                showToast('Pajak Error', 'Gagal mengambil data pajak', 'error');
+                console.error('Error Pajak:', error);
+            }
+
+            // Fetch Jasa Raharja
+            try {
+                const jrRes = await fetch(`http://192.168.0.2:3333/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const jrData = await jrRes.json();
+
+                document.getElementById('loadingJR').classList.add('hidden');
+                document.getElementById('contentJR').classList.remove('hidden');
+
+                if (jrData.status && jrData.data) {
+                    displayJR(jrData.data);
+                    successCount++;
+                    showToast('Jasa Raharja Berhasil', 'Data Jasa Raharja berhasil dimuat', 'success');
+                    totalJR = jrData.data.total_tarif.total;
+                } else {
+                    errorMessages.push('JR: ' + (jrData.message || 'Data tidak ditemukan'));
+                    showToast('Jasa Raharja Gagal', jrData.message || 'Data Jasa Raharja tidak ditemukan', 'error');
+                }
+            } catch (error) {
+                document.getElementById('loadingJR').classList.add('hidden');
+                document.getElementById('contentJR').classList.remove('hidden');
+                errorMessages.push('JR: Gagal terhubung ke server');
+                showToast('Jasa Raharja Error', 'Gagal mengambil data Jasa Raharja', 'error');
+                console.error('Error JR:', error);
+            }
+
+            // Summary notification (akan masuk queue otomatis)
+            if (successCount === 3) {
+                showToast('Sempurna!', 'Semua data berhasil dimuat', 'success');
+            } else if (successCount === 0) {
+                showToast('Gagal Total', 'Semua data gagal dimuat. Silakan coba lagi.', 'error');
+            } else {
+                showToast('Sebagian Berhasil', `${successCount} dari 3 data berhasil dimuat`, 'warning');
+            }
+
+            // Display Total Keseluruhan
+            displayTotalKeseluruhan(totalPajak, totalJR, totalPNBP);
+        }
+
+        function displayPajak(data) {
+            // Total tagihan
+            document.getElementById('grandTotal').textContent = data.tagihan.total.grand_total;
+            
+            // Info umum
+            document.getElementById('terakhirBayar').textContent = formatDate(data.terakhir_bayar);
+            document.getElementById('jarakWaktu').textContent = 
+                `${data.jarak.tahun} tahun ${data.jarak.bulan % 12} bulan`;
+
+            // Total PKB & Opsen
+            document.getElementById('pkbPokok').textContent = data.tagihan.total.pkb.pokok;
+            document.getElementById('pkbDenda').textContent = data.tagihan.total.pkb.denda;
+            document.getElementById('opsenPokok').textContent = data.tagihan.total.opsen.pokok;
+            document.getElementById('opsenDenda').textContent = data.tagihan.total.opsen.denda;
+
+            // Rincian per periode
+            const rincianContainer = document.getElementById('rincianPeriodeBody');
+            rincianContainer.innerHTML = '';
+            
+            data.tagihan.rincian.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                tr.innerHTML = `
+                    <td class="p-2 font-medium text-gray-900">${item.periode.periode}</td>
+                    <td class="p-2 text-gray-600">${item.periode.total_bulan_telat} bln</td>
+                    <td class="p-2 text-right text-gray-900">${item.pkb.pokok}</td>
+                    <td class="p-2 text-right text-red-600">${item.pkb.denda}</td>
+                    <td class="p-2 text-right text-gray-900">${item.is_opsen ? item.opsen.opsen : '-'}</td>
+                    <td class="p-2 text-right text-red-600">${item.is_opsen ? item.opsen.denda_opsen : '-'}</td>
+                    <td class="p-2 text-right font-semibold text-gray-900">${item.total}</td>
+                `;
+                rincianContainer.appendChild(tr);
+            });
+        }
+
+        function displayPNBP(data) {
+            if (data && data.pnbp) {
+                // Display total
+                document.getElementById('pnbpTotal').textContent = data.pnbp.total || 'Rp 0';
+                
+                // Display STNK
+                document.getElementById('pnbpSTNK').textContent = 
+                    data.pnbp.stnk?.status ? (data.pnbp.stnk.nominal || 'Rp 0') : 'Rp 0';
+                
+                // Display TNKB
+                document.getElementById('pnbpTNKB').textContent = 
+                    data.pnbp.tnkb?.status ? (data.pnbp.tnkb.nominal || 'Rp 0') : 'Rp 0';
+                
+                document.getElementById('pnbpContent').classList.remove('hidden');
+                document.getElementById('pnbpEmpty').classList.add('hidden');
+                
+                return data.pnbp.total || 'Rp 0';
+            } else {
+                document.getElementById('pnbpContent').classList.add('hidden');
+                document.getElementById('pnbpEmpty').classList.remove('hidden');
+                return 'Rp 0';
+            }
+        }
+
+        function displayJR(data) {
+            // Total tarif
+            const total = data.total_tarif.total;
+            document.getElementById('jrTotal').textContent = formatRupiah(total);
+            document.getElementById('jrPokok').textContent = formatRupiah(data.total_tarif.pokok_jr + data.total_tarif.kartu_jr);
+            document.getElementById('jrDenda').textContent = formatRupiah(data.total_tarif.denda_jr);
+
+            // Tarif per tahun dalam table
+            const tarifContainer = document.getElementById('tarifPerTahunBody');
+            tarifContainer.innerHTML = '';
+            
+            data.tarif_per_tahun.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                tr.innerHTML = `
+                    <td class="p-2 font-medium text-gray-900">${item.keterangan}</td>
+                    <td class="p-2 text-right text-gray-900">${formatRupiah(item.kartu_jr + item.pokok_jr)}</td>
+                    <td class="p-2 text-right text-red-600">${formatRupiah(item.denda_jr)}</td>
+                    <td class="p-2 text-right font-semibold text-gray-900">${formatRupiah(item.subtotal)}</td>
+                `;
+                tarifContainer.appendChild(tr);
+            });
+        }
+
+        function formatRupiah(angka) {
+            return 'Rp ' + Number(angka).toLocaleString('id-ID');
+        }
+
+        function parseRupiah(rupiahString) {
+            // Parse string Rupiah to number
+            if (!rupiahString || rupiahString === '-') return 0;
+            return Number(rupiahString.replace(/[^0-9,-]/g, '').replace('.', '').replace(',', '.'));
+        }
+
+        function displayTotalKeseluruhan(totalPajak, totalJR, totalPNBP) {
+            // Parse all values
+            const pajakValue = parseRupiah(totalPajak);
+            const jrValue = Number(totalJR) || 0;
+            const pnbpValue = parseRupiah(totalPNBP);
+
+            // Calculate grand total
+            const grandTotal = pajakValue + jrValue + pnbpValue;
+
+            // Display
+            document.getElementById('totalKeseluruhan').textContent = formatRupiah(grandTotal);
+            document.getElementById('totalPajak').textContent = totalPajak || 'Rp 0';
+            document.getElementById('totalJR').textContent = formatRupiah(jrValue);
+            document.getElementById('totalPNBP').textContent = totalPNBP || 'Rp 0';
+
+            // Show the card
+            document.getElementById('infoTotal').classList.remove('hidden');
+        }
+    </script>
 </body>
 </html>
+
