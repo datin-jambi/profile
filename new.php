@@ -7,7 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
+
     <div class="max-w-3xl mx-auto">
+        <!-- Announcement -->
+        <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-900 rounded-md p-4 mb-4 shadow-sm" role="alert" aria-live="polite">
+            <p class="text-sm font-semibold">Pengumuman</p>
+            <p class="text-sm mt-1">
+                Informasi perhitungan pada halaman ini sudah digunakan sebagai acuan layanan, namun nilainya masih dapat menyesuaikan kebijakan dan pembaruan sistem yang berlaku. Nominal final yang sah tetap mengacu pada ketetapan resmi di kantor Samsat saat pembayaran pajak.
+            </p>
+        </div>
+
         <!-- Header & Form -->
         <div class="bg-white rounded-lg shadow p-6 mb-4">
 
@@ -545,7 +554,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const response = await fetch(`http://192.168.0.2:3333/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
+                const response = await fetch(`https://api-doc.jambisamsat.net/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -727,7 +736,7 @@
 
             // Fetch PNBP
             try {
-                const pnbpRes = await fetch(`http://192.168.0.2:3333/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pnbpRes = await fetch(`https://api-doc.jambisamsat.net/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -758,7 +767,7 @@
 
             // Fetch Pajak
             try {
-                const pajakRes = await fetch(`http://192.168.0.2:3333/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pajakRes = await fetch(`https://api-doc.jambisamsat.net/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -788,7 +797,7 @@
 
             // Fetch Jasa Raharja
             try {
-                const jrRes = await fetch(`http://192.168.0.2:3333/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const jrRes = await fetch(`https://api-doc.jambisamsat.net/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
