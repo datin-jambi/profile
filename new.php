@@ -531,6 +531,7 @@
     <script>
         // API Token
         const API_TOKEN = 'd84e44fc2e1cb516f2d58580fcfc00a453402f0a13219ef82481d0ebad2944c8';
+        const HOST = 'https://api-pkb.jambisamsat.net/api'
         
         // Variable untuk menyimpan nopol saat ini
         let currentNopol = '';
@@ -554,7 +555,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const response = await fetch(`https://api-doc.jambisamsat.net/api/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
+                const response = await fetch(`${HOST}/kendaraan/detail?nopol=${encodeURIComponent(nopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -736,7 +737,7 @@
 
             // Fetch PNBP
             try {
-                const pnbpRes = await fetch(`https://api-doc.jambisamsat.net/api/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pnbpRes = await fetch(`${HOST}/kendaraan/pnbp?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -767,7 +768,7 @@
 
             // Fetch Pajak
             try {
-                const pajakRes = await fetch(`https://api-doc.jambisamsat.net/api/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const pajakRes = await fetch(`${HOST}/pajak/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -797,7 +798,7 @@
 
             // Fetch Jasa Raharja
             try {
-                const jrRes = await fetch(`https://api-doc.jambisamsat.net/api/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
+                const jrRes = await fetch(`${HOST}/jr/detail?nopol=${encodeURIComponent(currentNopol)}`, {
                     headers: {
                         'Authorization': `Bearer ${API_TOKEN}`,
                         'Content-Type': 'application/json'
